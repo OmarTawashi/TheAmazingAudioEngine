@@ -30,7 +30,7 @@ extern "C" {
 #endif
 
 #import "AEAudioController.h"
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     #import "AEAudioController+Audiobus.h"
 #endif
 #import "AEAudioFileLoaderOperation.h"

@@ -62,7 +62,7 @@ class GameScene: SKScene {
 //        #endif
         audioDesc.mSampleRate = 22050.0 // I like to use 22050.0 for games
         
-        if let audCtrlr = AEAudioController(audioDescription: audioDesc, inputEnabled: false) {
+        if let audCtrlr = AEAudioController(audioDescription: audioDesc) {
             _audCtrlr = audCtrlr
         } else {
             fatalError("ERROR: Couldn't instantiate an AEAudioController.")
@@ -87,7 +87,7 @@ class GameScene: SKScene {
     override func update(currentTime: CFTimeInterval) {
         /* Called before each frame is rendered */
         
-        // Just playing around a bit: this test out panning effects indepentent of each other (useful for game sound effects)
+        // Just playing around a bit: this tests out panning the effects independently of each other (useful for game sound effects)
         if _snd1 != nil {
             _snd1.pan += _snd1PanIncr
             if _snd1.pan > 0.99 || _snd1.pan < -0.99 { _snd1PanIncr *= -1.0 }
@@ -108,34 +108,19 @@ class GameScene: SKScene {
     
     func _doStartBgMusic() {
         if _bgMusic == nil {
-            // Let's try to play a long bg music track!
-            if let player = AEAudioUnitFilePlayer(audioUnitFilePlayerWithAudioController: _audCtrlr, error:nil) {
-                
-                // This code works, except it doesn't loop:
-//                _bgMusic = player
-//                _bgMusic.loadAudioFileFromUrl(NSBundle.mainBundle().URLForResource("bg_music", withExtension: "caf")) // stereo 44.1hz wav
-//                _bgMusic.volume = 0.75
-//                _bgMusic.removeUponFinish = false
-//                _bgMusic.loop = true // ...but looping not working! See next comments:
-//                _bgMusic.completionBlock = { println("completionBlock") } // this prints at the wrong time!
-//                _bgMusic.startLoopBlock  = { println("startLoopBlock") } // this never seems to get called
-//                _audCtrlr.addChannels([_bgMusic])
-//                _bgMusic.play()
-                
-                // Just use a regular file player (loads everything into memory)
-                var err : NSErrorPointer = nil
-                _bgMusic = AEAudioFilePlayer.audioFilePlayerWithURL(NSBundle.mainBundle().URLForResource("bg_music", withExtension: "wav"), audioController: _audCtrlr, error: err) as AEAudioFilePlayer
-                if _bgMusic == nil {
-                    _doResetEffectSounds()
-                    println("Could not load snd1 !")
-                    return
-                }
-                _bgMusic.loop = true
-                _bgMusic.volume = 0.65
-                _audCtrlr.addChannels([_bgMusic])
-                
-                println("bgMusic playing: \(_bgMusic.channelIsPlaying)")
+            // There is an unsupported "AEAudioUnitFilePlayer.h" you can use, but looping doesn't seem to loop and the loop completion callback gets called at what seems to be the wrong time.  So, for no I've converted this function to use a regular file player.  This unfortunately loads everything into memory, so keep these tracks short even if using a compressed format - it still takes the same memory as an uncompressed format.
+            var err : NSErrorPointer = nil
+            _bgMusic = AEAudioFilePlayer.audioFilePlayerWithURL(NSBundle.mainBundle().URLForResource("bg_music", withExtension: "wav"), audioController: _audCtrlr, error: err) as AEAudioFilePlayer
+            if _bgMusic == nil {
+                _doResetEffectSounds()
+                println("Could not load bgMusic !")
+                return
             }
+            _bgMusic.loop = true
+            _bgMusic.volume = 0.65
+            _audCtrlr.addChannels([_bgMusic])
+            
+            println("bgMusic playing: \(_bgMusic.channelIsPlaying)")
         } else {
             _audCtrlr.removeChannels([_bgMusic])
             _bgMusic = nil

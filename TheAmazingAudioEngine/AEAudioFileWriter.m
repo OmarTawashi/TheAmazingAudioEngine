@@ -26,9 +26,6 @@
 #import "AEAudioFileWriter.h"
 #import "TheAmazingAudioEngine.h"
 #import <AVFoundation/AVFoundation.h>
-#if IS_MAC_OSX
-    #import "AEMacOSAudioSessionAdapter.h"
-#endif
 
 NSString * const AEAudioFileWriterErrorDomain = @"com.theamazingaudioengine.AEAudioFileWriterErrorDomain";
 
@@ -55,7 +52,7 @@ static inline BOOL _checkResult(OSStatus result, const char *operation, const ch
 @synthesize path = _path;
 
 + (BOOL)AACEncodingAvailable {
-#if TARGET_IPHONE_SIMULATOR
+#if defined(__MAC_OS_X_VERSION_MAX_ALLOWED) ||  TARGET_IPHONE_SIMULATOR
     return YES;
 #else
     static BOOL available;
@@ -119,6 +116,7 @@ static inline BOOL _checkResult(OSStatus result, const char *operation, const ch
             return NO;
         }
         
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
         AVAudioSession *audioSession = [AVAudioSession sharedInstance];
         
         // AAC won't work if the 'mix with others' session property is enabled. Disable it if it's on.
@@ -133,6 +131,7 @@ static inline BOOL _checkResult(OSStatus result, const char *operation, const ch
                 NSLog(@"Couldn't update category options: %@", error);
             }
         }
+#endif
 
         // Get the output audio description
         AudioStreamBasicDescription destinationFormat;
@@ -140,7 +139,11 @@ static inline BOOL _checkResult(OSStatus result, const char *operation, const ch
         destinationFormat.mChannelsPerFrame = _audioDescription.mChannelsPerFrame;
         destinationFormat.mSampleRate = _audioDescription.mSampleRate;
         destinationFormat.mFormatID = kAudioFormatMPEG4AAC;
+#ifdef __MAC_OS_X_VERSION_MAX_ALLOWED
+        unsigned int size = sizeof(destinationFormat);
+#else
         size = sizeof(destinationFormat);
+#endif
         status = AudioFormatGetProperty(kAudioFormatProperty_FormatInfo, 0, NULL, &size, &destinationFormat);
         if ( !checkResult(status, "AudioFormatGetProperty(kAudioFormatProperty_FormatInfo") ) {
             int fourCC = CFSwapInt32HostToBig(status);
@@ -166,6 +169,7 @@ static inline BOOL _checkResult(OSStatus result, const char *operation, const ch
             return NO;
         }
         
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
         UInt32 codecManfacturer = kAppleSoftwareAudioCodecManufacturer;
         status = ExtAudioFileSetProperty(_audioFile, kExtAudioFileProperty_CodecManufacturer, sizeof(UInt32), &codecManfacturer);
         
@@ -177,6 +181,7 @@ static inline BOOL _checkResult(OSStatus result, const char *operation, const ch
             ExtAudioFileDispose(_audioFile);
             return NO;
         }
+#endif
     } else {
         
         // Derive the output audio description from the client format, but with interleaved, big endian (if AIFF) signed integers.
@@ -232,6 +237,7 @@ static inline BOOL _checkResult(OSStatus result, const char *operation, const ch
     
     checkResult(ExtAudioFileDispose(_audioFile), "AudioFileClose");
     
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     if ( _priorMixOverrideValue ) {
         NSError *error = nil;
         AVAudioSession *audioSession = [AVAudioSession sharedInstance];
@@ -241,6 +247,7 @@ static inline BOOL _checkResult(OSStatus result, const char *operation, const ch
             NSLog(@"Couldn't update category options: %@", error);
         }
     }
+#endif
 }
 
 OSStatus AEAudioFileWriterAddAudio(__unsafe_unretained AEAudioFileWriter* THIS, AudioBufferList *bufferList, UInt32 lengthInFrames) {

@@ -7,8 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		B306A5441A30FB2F00DA07EE /* libTAAE-Complete-For-Swift.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B306A5431A30FB2F00DA07EE /* libTAAE-Complete-For-Swift.a */; };
-		B306A5451A30FB3A00DA07EE /* libTAAE-Complete-For-Swift-OSX.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B37330ED1A30F9AD00E4D221 /* libTAAE-Complete-For-Swift-OSX.a */; };
+		B37218C71A31EA4C0061C074 /* libTheAmazingAudioEngine.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B37330E91A30F9AD00E4D221 /* libTheAmazingAudioEngine.a */; };
+		B37218C81A31EA510061C074 /* libTheAmazingAudioEngine-OSX.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B37330EB1A30F9AD00E4D221 /* libTheAmazingAudioEngine-OSX.a */; };
 		B3AD74171A30F18500CDE9E3 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3AD74161A30F18500CDE9E3 /* AppDelegate.swift */; };
 		B3AD741D1A30F18500CDE9E3 /* GameViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3AD741C1A30F18500CDE9E3 /* GameViewController.swift */; };
 		B3AD74201A30F18500CDE9E3 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = B3AD741E1A30F18500CDE9E3 /* Main.storyboard */; };
@@ -37,13 +37,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		B306A5421A30FB2F00DA07EE /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = B37330E21A30F9AD00E4D221 /* TheAmazingAudioEngine.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = B37331151A30F9CE00E4D221;
-			remoteInfo = "TAAE-Complete-For-Swift";
-		};
 		B37330E81A30F9AD00E4D221 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = B37330E21A30F9AD00E4D221 /* TheAmazingAudioEngine.xcodeproj */;
@@ -57,13 +50,6 @@
 			proxyType = 2;
 			remoteGlobalIDString = B35C44881A308A5B00ABD773;
 			remoteInfo = "TheAmazingAudioEngine-OSX";
-		};
-		B37330EC1A30F9AD00E4D221 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = B37330E21A30F9AD00E4D221 /* TheAmazingAudioEngine.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = B32A732D1A30EF9000FBC208;
-			remoteInfo = "TAAE-Complete-For-Swift-OSX";
 		};
 /* End PBXContainerItemProxy section */
 
@@ -100,7 +86,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				B306A5441A30FB2F00DA07EE /* libTAAE-Complete-For-Swift.a in Frameworks */,
+				B37218C71A31EA4C0061C074 /* libTheAmazingAudioEngine.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -108,7 +94,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				B306A5451A30FB3A00DA07EE /* libTAAE-Complete-For-Swift-OSX.a in Frameworks */,
+				B37218C81A31EA510061C074 /* libTheAmazingAudioEngine-OSX.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -120,8 +106,6 @@
 			children = (
 				B37330E91A30F9AD00E4D221 /* libTheAmazingAudioEngine.a */,
 				B37330EB1A30F9AD00E4D221 /* libTheAmazingAudioEngine-OSX.a */,
-				B306A5431A30FB2F00DA07EE /* libTAAE-Complete-For-Swift.a */,
-				B37330ED1A30F9AD00E4D221 /* libTAAE-Complete-For-Swift-OSX.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -131,7 +115,7 @@
 			children = (
 				B37330E21A30F9AD00E4D221 /* TheAmazingAudioEngine.xcodeproj */,
 				B3F109B31A30F3010062B2E7 /* CrossPlatform */,
-				B3AD74131A30F18500CDE9E3 /* TheGameSample */,
+				B3AD74131A30F18500CDE9E3 /* TheGameSample-iOS */,
 				B3F109931A30F1E20062B2E7 /* TheGameSample-Mac */,
 				B3AD74121A30F18500CDE9E3 /* Products */,
 			);
@@ -146,7 +130,7 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		B3AD74131A30F18500CDE9E3 /* TheGameSample */ = {
+		B3AD74131A30F18500CDE9E3 /* TheGameSample-iOS */ = {
 			isa = PBXGroup;
 			children = (
 				B3F109BA1A30F3600062B2E7 /* LaunchImages */,
@@ -156,6 +140,7 @@
 				B3AD74211A30F18500CDE9E3 /* Images.xcassets */,
 				B3AD74141A30F18500CDE9E3 /* Supporting Files */,
 			);
+			name = "TheGameSample-iOS";
 			path = TheGameSample;
 			sourceTree = "<group>";
 		};
@@ -302,13 +287,6 @@
 /* End PBXProject section */
 
 /* Begin PBXReferenceProxy section */
-		B306A5431A30FB2F00DA07EE /* libTAAE-Complete-For-Swift.a */ = {
-			isa = PBXReferenceProxy;
-			fileType = archive.ar;
-			path = "libTAAE-Complete-For-Swift.a";
-			remoteRef = B306A5421A30FB2F00DA07EE /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
 		B37330E91A30F9AD00E4D221 /* libTheAmazingAudioEngine.a */ = {
 			isa = PBXReferenceProxy;
 			fileType = archive.ar;
@@ -321,13 +299,6 @@
 			fileType = archive.ar;
 			path = "libTheAmazingAudioEngine-OSX.a";
 			remoteRef = B37330EA1A30F9AD00E4D221 /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		B37330ED1A30F9AD00E4D221 /* libTAAE-Complete-For-Swift-OSX.a */ = {
-			isa = PBXReferenceProxy;
-			fileType = archive.ar;
-			path = "libTAAE-Complete-For-Swift-OSX.a";
-			remoteRef = B37330EC1A30F9AD00E4D221 /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 /* End PBXReferenceProxy section */

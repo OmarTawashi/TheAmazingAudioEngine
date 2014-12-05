@@ -29,9 +29,6 @@ extern "C" {
 
 #import <AudioToolbox/AudioToolbox.h>
 #import <AudioUnit/AudioUnit.h>
-#if IS_MAC_OSX
-    #import "AEMacOSAudioSessionAdapter.h"
-#endif
 
 @class AEAudioController;
 
@@ -1085,6 +1082,7 @@ NSTimeInterval AEConvertFramesToSeconds(AEAudioController *audioController, long
 ///@}
 #pragma mark - Properties
 
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
 /*!
  * Audio session category to use
  *
@@ -1093,6 +1091,7 @@ NSTimeInterval AEConvertFramesToSeconds(AEAudioController *audioController, long
  *  AVAudioSessionCategoryPlayback otherwise, with mixing with other apps enabled.
  */
 @property (nonatomic, assign) NSString * audioSessionCategory;
+#endif
 
 /*!
  * Whether to allow mixing audio with other apps
@@ -1320,7 +1319,7 @@ NSTimeInterval AEConvertFramesToSeconds(AEAudioController *audioController, long
  */
 @property (nonatomic, readonly) AUGraph audioGraph;
 
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
 #pragma mark - C access to properties
 
 /*!

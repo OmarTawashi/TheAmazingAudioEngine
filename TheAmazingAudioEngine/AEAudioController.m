@@ -25,7 +25,7 @@
 
 #import "AEAudioController.h"
 #import "AEUtilities.h"
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     #import <UIKit/UIKit.h>
 #endif
 #import <AVFoundation/AVFoundation.h>
@@ -34,7 +34,7 @@
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #import <Accelerate/Accelerate.h>
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     #import "AEAudioController+Audiobus.h"
     #import "AEAudioController+AudiobusStub.h"
 #endif
@@ -51,12 +51,12 @@ static const int kMaximumCallbacksPerSource            = 15;
 static const int kMessageBufferLength                  = 8192;
 static const NSTimeInterval kIdleMessagingPollDuration = 0.1;
 static const UInt32 kMaxFramesPerSlice                 = 4096;
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
 static const int kScratchBufferFrames                  = kMaxFramesPerSlice;
 #endif
 static const int kInputAudioBufferFrames               = kMaxFramesPerSlice;
 static const int kLevelMonitorScratchBufferSize        = kMaxFramesPerSlice;
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
 static const NSTimeInterval kMaxBufferDurationWithVPIO = 0.01;
 static const Float32 kNoValue                          = -1.0;
 #endif
@@ -64,7 +64,7 @@ static const Float32 kNoValue                          = -1.0;
 
 static void * kChannelPropertyChanged = &kChannelPropertyChanged;
 
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
 static Float32 __cachedInputLatency = kNoValue;
 static Float32 __cachedOutputLatency = kNoValue;
 #endif
@@ -294,7 +294,7 @@ typedef struct {
 
 @property (nonatomic, assign, readwrite) NSTimeInterval currentBufferDuration;
 @property (nonatomic, strong) NSError *lastError;
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
 @property (nonatomic, strong) NSTimer *housekeepingTimer;
 @property (nonatomic, strong) ABReceiverPort *audiobusReceiverPort;
 @property (nonatomic, strong) ABFilterPort *audiobusFilterPort;
@@ -304,9 +304,13 @@ typedef struct {
 @end
 
 @implementation AEAudioController
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
 @synthesize audioSessionCategory = _audioSessionCategory, audioUnit = _ioAudioUnit;
+#else
+@synthesize audioUnit = _ioAudioUnit;
+#endif
 @dynamic running, inputGainAvailable, inputGain,
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
 audiobusSenderPort,
 #endif
 inputAudioDescription, inputChannelSelection;
@@ -315,7 +319,6 @@ inputAudioDescription, inputChannelSelection;
 #pragma mark Input and render callbacks
 
 struct fillComplexBufferInputProc_t { AudioBufferList *bufferList; UInt32 frames;  };
-#if IS_IOS
 static OSStatus fillComplexBufferInputProc(AudioConverterRef             inAudioConverter,
                                            UInt32                        *ioNumberDataPackets,
                                            AudioBufferList               *ioData,
@@ -329,7 +332,6 @@ static OSStatus fillComplexBufferInputProc(AudioConverterRef             inAudio
     *ioNumberDataPackets = arg->frames;
     return noErr;
 }
-#endif
 
 typedef struct __channel_producer_arg_t {
     AEChannelRef channel;
@@ -421,7 +423,7 @@ static OSStatus renderCallback(void *inRefCon, AudioUnitRenderActionFlags *ioAct
     
     THIS->_channelBeingRendered = NULL;
     
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     if ( channel->audiobusSenderPort && ABSenderPortIsConnected((__bridge id)channel->audiobusSenderPort) && channel->audiobusFloatConverter ) {
         // Convert the audio to float, and apply volume/pan if necessary
         if ( AEFloatConverterToFloatBufferList((__bridge AEFloatConverter*)channel->audiobusFloatConverter, ioData, channel->audiobusScratchBuffer, inNumberFrames) ) {
@@ -470,7 +472,6 @@ typedef struct __input_producer_arg_t {
     int nextFilterIndex;
 } input_producer_arg_t;
 
-#if IS_IOS
 static OSStatus inputAudioProducer(void *userInfo, AudioBufferList *audio, UInt32 *frames) {
     input_producer_arg_t *arg = (input_producer_arg_t*)userInfo;
     __unsafe_unretained AEAudioController *THIS = (__bridge AEAudioController*)arg->THIS;
@@ -530,6 +531,7 @@ static OSStatus inputAvailableCallback(void *inRefCon, AudioUnitRenderActionFlag
     
     AudioTimeStamp timestamp = *inTimeStamp;
     
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     BOOL useAudiobusReceiverPort = THIS->_audiobusReceiverPort && THIS->_usingAudiobusInput;
     
     if ( useAudiobusReceiverPort ) {
@@ -539,6 +541,7 @@ static OSStatus inputAvailableCallback(void *inRefCon, AudioUnitRenderActionFlag
         timestamp.mSampleTime = __sampleTime;
         __sampleTime += inNumberFrames;
     }
+#endif
     
     for ( int i=0; i<THIS->_timingCallbacks.count; i++ ) {
         callback_t *callback = &THIS->_timingCallbacks.callbacks[i];
@@ -550,7 +553,9 @@ static OSStatus inputAvailableCallback(void *inRefCon, AudioUnitRenderActionFlag
     }
     
     // Render audio into buffer
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     if ( !useAudiobusReceiverPort ) {
+#endif
         for ( int i=0; i<THIS->_inputAudioBufferList->mNumberBuffers; i++ ) {
             THIS->_inputAudioBufferList->mBuffers[i].mDataByteSize = inNumberFrames * THIS->_rawInputAudioDescription.mBytesPerFrame;
         }
@@ -558,7 +563,9 @@ static OSStatus inputAvailableCallback(void *inRefCon, AudioUnitRenderActionFlag
         if ( !checkResult(err, "AudioUnitRender") ) {
             return err;
         }
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     }
+#endif
     
     if ( inNumberFrames == 0 ) return kNoAudioErr;
     
@@ -599,7 +606,6 @@ static OSStatus inputAvailableCallback(void *inRefCon, AudioUnitRenderActionFlag
     
     return result;
 }
-#endif
 
 static OSStatus groupRenderNotifyCallback(void *inRefCon, AudioUnitRenderActionFlags *ioActionFlags, const AudioTimeStamp *inTimeStamp, UInt32 inBusNumber, UInt32 inNumberFrames, AudioBufferList *ioData) {
     AEChannelRef channel = (AEChannelRef)inRefCon;
@@ -732,7 +738,9 @@ static OSStatus topRenderNotifyCallback(void *inRefCon, AudioUnitRenderActionFla
     
     NSAssert(audioDescription.mFormatID == kAudioFormatLinearPCM, @"Only linear PCM supported");
 
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     _audioSessionCategory = enableInput ? AVAudioSessionCategoryPlayAndRecord : AVAudioSessionCategoryPlayback;
+#endif
     _allowMixingWithOtherApps = YES;
     _audioDescription = audioDescription;
     _inputEnabled = enableInput;
@@ -744,7 +752,7 @@ static OSStatus topRenderNotifyCallback(void *inRefCon, AudioUnitRenderActionFla
     _inputCallbacks = (input_callback_table_t*)calloc(sizeof(input_callback_table_t), 1);
     _inputCallbackCount = 1;
     
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationWillEnterForeground:) name:UIApplicationWillEnterForegroundNotification object:nil];
     
     if ( ABConnectionsChangedNotification ) {
@@ -755,7 +763,7 @@ static OSStatus topRenderNotifyCallback(void *inRefCon, AudioUnitRenderActionFla
     TPCircularBufferInit(&_realtimeThreadMessageBuffer, kMessageBufferLength);
     TPCircularBufferInit(&_mainThreadMessageBuffer, kMessageBufferLength);
     
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     if ( ![self initAudioSession]) {
         _audioGraph = NULL;
     }
@@ -765,11 +773,11 @@ static OSStatus topRenderNotifyCallback(void *inRefCon, AudioUnitRenderActionFla
         _audioGraph = NULL;
     }
     
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     self.housekeepingTimer = [NSTimer scheduledTimerWithTimeInterval:1.0 target:[[AEAudioControllerProxy alloc] initWithAudioController:self] selector:@selector(housekeeping) userInfo:nil repeats:YES];
 #endif
     
-#if IS_MAC_OSX
+#ifdef __MAC_OS_X_VERSION_MAX_ALLOWED
     [self applicationWillEnterForeground:nil];
 #endif
     
@@ -778,7 +786,7 @@ static OSStatus topRenderNotifyCallback(void *inRefCon, AudioUnitRenderActionFla
 
 - (void)dealloc {
     
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     [_housekeepingTimer invalidate];
     self.housekeepingTimer = nil;
 #endif
@@ -832,7 +840,7 @@ static OSStatus topRenderNotifyCallback(void *inRefCon, AudioUnitRenderActionFla
         return NO;
     }
     
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     AVAudioSession *audioSession = [AVAudioSession sharedInstance];
     
     if ( ![audioSession setActive:YES error:error] ) {
@@ -882,7 +890,7 @@ static OSStatus topRenderNotifyCallback(void *inRefCon, AudioUnitRenderActionFla
     }
     
     if ( _inputEnabled ) {
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
         if ( [audioSession respondsToSelector:@selector(requestRecordPermission:)] ) {
             [audioSession requestRecordPermission:^(BOOL granted) {
                 dispatch_async(dispatch_get_main_queue(), ^{
@@ -902,7 +910,7 @@ static OSStatus topRenderNotifyCallback(void *inRefCon, AudioUnitRenderActionFla
         }
 #endif
         
-#if IS_MAC_OSX
+#ifdef __MAC_OS_X_VERSION_MAX_ALLOWED
         [self updateInputDeviceStatus];
 #endif
     }
@@ -928,7 +936,7 @@ static OSStatus topRenderNotifyCallback(void *inRefCon, AudioUnitRenderActionFla
     }
     
     if ( !_interrupted ) {
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
         NSError *error = nil;
         if ( ![((AVAudioSession*)[AVAudioSession sharedInstance]) setActive:NO error:&error] ) {
             NSLog(@"TAAE: Couldn't deactivate audio session: %@", error);
@@ -1673,6 +1681,7 @@ NSTimeInterval AEConvertFramesToSeconds(__unsafe_unretained AEAudioController *T
 
 #pragma mark - Setters, getters
 
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
 -(void)setAudioSessionCategory:(NSString *)audioSessionCategory {
     AVAudioSession *audioSession = [AVAudioSession sharedInstance];
     
@@ -1710,16 +1719,24 @@ NSTimeInterval AEConvertFramesToSeconds(__unsafe_unretained AEAudioController *T
                 ? AVAudioSessionCategoryPlayback
                 : _audioSessionCategory;
 }
+#endif
 
 -(void)setAllowMixingWithOtherApps:(BOOL)allowMixingWithOtherApps {
     _allowMixingWithOtherApps = allowMixingWithOtherApps;
     
+#ifdef __MAC_OS_X_VERSION_MAX_ALLOWED
+    NSLog(@"TAAE: %s Not implemented for Mac OS X yet (%@:%i)", __PRETTY_FUNCTION__, [[NSString stringWithFormat:@"%s",__FILE__] lastPathComponent], __LINE__);
+#else
     [self setAudioSessionCategory:_audioSessionCategory];
+#endif
 }
 
 -(void)setUseMeasurementMode:(BOOL)useMeasurementMode {
     _useMeasurementMode = useMeasurementMode;
     
+#ifdef __MAC_OS_X_VERSION_MAX_ALLOWED
+    NSLog(@"TAAE: %s Not implemented for Mac OS X yet (%@:%i)", __PRETTY_FUNCTION__, [[NSString stringWithFormat:@"%s",__FILE__] lastPathComponent], __LINE__);
+#else
     AVAudioSession *audioSession = [AVAudioSession sharedInstance];
     
     NSError *error = nil;
@@ -1732,6 +1749,7 @@ NSTimeInterval AEConvertFramesToSeconds(__unsafe_unretained AEAudioController *T
             NSLog(@"TAAE: Couldn't set preferred IO buffer duration: %@", error);
         }
     }
+#endif
 }
 
 -(void)setMasterOutputVolume:(float)masterOutputVolume {
@@ -1754,16 +1772,30 @@ NSTimeInterval AEConvertFramesToSeconds(__unsafe_unretained AEAudioController *T
 
 -(void)setEnableBluetoothInput:(BOOL)enableBluetoothInput {
     _enableBluetoothInput = enableBluetoothInput;
-
+    
+#ifdef __MAC_OS_X_VERSION_MAX_ALLOWED
+    NSLog(@"TAAE: %s Not implemented for Mac OS X yet (%@:%i)", __PRETTY_FUNCTION__, [[NSString stringWithFormat:@"%s",__FILE__] lastPathComponent], __LINE__);
+#else
     [self setAudioSessionCategory:_audioSessionCategory];
+#endif
 }
 
 -(BOOL)inputGainAvailable {
+#ifdef __MAC_OS_X_VERSION_MAX_ALLOWED
+    NSLog(@"TAAE: %s Not implemented for Mac OS X yet (%@:%i)", __PRETTY_FUNCTION__, [[NSString stringWithFormat:@"%s",__FILE__] lastPathComponent], __LINE__);
+    return NO;
+#else
     return [((AVAudioSession*)[AVAudioSession sharedInstance]) isInputGainSettable];
+#endif
 }
 
 -(float)inputGain {
+#ifdef __MAC_OS_X_VERSION_MAX_ALLOWED
+    NSLog(@"TAAE: %s Not implemented for Mac OS X yet (%@:%i)", __PRETTY_FUNCTION__, [[NSString stringWithFormat:@"%s",__FILE__] lastPathComponent], __LINE__);
+    return 0.0;
+#else
     return [((AVAudioSession*)[AVAudioSession sharedInstance]) inputGain];
+#endif
 }
 
 -(AudioStreamBasicDescription)inputAudioDescription {
@@ -1771,10 +1803,14 @@ NSTimeInterval AEConvertFramesToSeconds(__unsafe_unretained AEAudioController *T
 }
 
 -(void)setInputGain:(float)inputGain {
+#ifdef __MAC_OS_X_VERSION_MAX_ALLOWED
+    NSLog(@"TAAE: %s Not implemented for Mac OS X yet (%@:%i)", __PRETTY_FUNCTION__, [[NSString stringWithFormat:@"%s",__FILE__] lastPathComponent], __LINE__);
+#else
     NSError *error = NULL;
     if ( ![((AVAudioSession*)[AVAudioSession sharedInstance]) setInputGain:inputGain error:&error] ) {
         NSLog(@"TAAE: Couldn't set input gain: %@", error);
     }
+#endif
 }
 
 -(void)setInputMode:(AEInputMode)inputMode {
@@ -1807,6 +1843,9 @@ NSTimeInterval AEConvertFramesToSeconds(__unsafe_unretained AEAudioController *T
 -(void)setPreferredBufferDuration:(NSTimeInterval)preferredBufferDuration {
     if ( _preferredBufferDuration == preferredBufferDuration ) return;
     
+#ifdef __MAC_OS_X_VERSION_MAX_ALLOWED
+    NSLog(@"TAAE: %s Not implemented for Mac OS X yet (%@:%i)", __PRETTY_FUNCTION__, [[NSString stringWithFormat:@"%s",__FILE__] lastPathComponent], __LINE__);
+#else
     _preferredBufferDuration = preferredBufferDuration;
     
     AVAudioSession *audioSession = [AVAudioSession sharedInstance];
@@ -1822,10 +1861,11 @@ NSTimeInterval AEConvertFramesToSeconds(__unsafe_unretained AEAudioController *T
     NSLog(@"TAAE: Buffer duration %0.2g, %d frames (requested %0.2gs, %d frames)",
           grantedBufferSize, (int)round(grantedBufferSize*_audioDescription.mSampleRate),
           _preferredBufferDuration, (int)round(_preferredBufferDuration*_audioDescription.mSampleRate));
+#endif
 }
 
 -(NSTimeInterval)inputLatency {
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     return AEAudioControllerInputLatency(self);
 #else
     return 0.0;
@@ -1833,7 +1873,7 @@ NSTimeInterval AEConvertFramesToSeconds(__unsafe_unretained AEAudioController *T
 }
 
 
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
 NSTimeInterval AEAudioControllerInputLatency(__unsafe_unretained AEAudioController *THIS) {
     if ( !THIS->_inputEnabled ) return 0.0;
     
@@ -1884,7 +1924,7 @@ NSTimeInterval AEAudioControllerOutputLatency(__unsafe_unretained AEAudioControl
 
 #pragma mark - Audiobus
 
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
 -(void)setAudiobusReceiverPort:(ABReceiverPort *)audiobusReceiverPort {
     _audiobusReceiverPort = audiobusReceiverPort;
     
@@ -2053,6 +2093,9 @@ NSTimeInterval AEAudioControllerOutputLatency(__unsafe_unretained AEAudioControl
 }
 
 - (void)applicationWillEnterForeground:(NSNotification*)notification {
+#ifdef __MAC_OS_X_VERSION_MAX_ALLOWED
+    NSLog(@"TAAE: %s Not implemented for Mac OS X yet (%@:%i)", __PRETTY_FUNCTION__, [[NSString stringWithFormat:@"%s",__FILE__] lastPathComponent], __LINE__);
+#else
     NSError *error = nil;
     if ( ![((AVAudioSession*)[AVAudioSession sharedInstance]) setActive:YES error:&error] ) {
         NSLog(@"TAAE: Couldn't activate audio session: %@", error);
@@ -2069,9 +2112,10 @@ NSTimeInterval AEAudioControllerOutputLatency(__unsafe_unretained AEAudioControl
     }
     
     if ( _hasSystemError ) [self attemptRecoveryFromSystemError:NULL];
+#endif
 }
 
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
 -(void)audiobusConnectionsChanged:(NSNotification*)notification {
     if ( _inputEnabled ) {
         [self updateInputDeviceStatus];
@@ -2220,7 +2264,7 @@ static void interAppConnectedChangeCallback(void *inRefCon, AudioUnit inUnit, Au
 
 #pragma mark - Graph and audio session configuration
 
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
 - (BOOL)initAudioSession {
     AVAudioSession *audioSession = [AVAudioSession sharedInstance];
     NSMutableString *extraInfo = [NSMutableString string];
@@ -2288,14 +2332,14 @@ static void interAppConnectedChangeCallback(void *inRefCon, AudioUnit inUnit, Au
     OSStatus result = NewAUGraph(&_audioGraph);
     if ( !checkResult(result, "NewAUGraph") ) return NO;
     
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     BOOL useVoiceProcessing = [self usingVPIO];
 #endif
     
     // Input/output unit description
     AudioComponentDescription io_desc = {
         .componentType = kAudioUnitType_Output,
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
         .componentSubType = useVoiceProcessing ? kAudioUnitSubType_VoiceProcessingIO : kAudioUnitSubType_RemoteIO,
 #else
         .componentSubType = kAudioUnitSubType_DefaultOutput,
@@ -2317,7 +2361,7 @@ static void interAppConnectedChangeCallback(void *inRefCon, AudioUnit inUnit, Au
     result = AUGraphNodeInfo(_audioGraph, _ioNode, NULL, &_ioAudioUnit);
     if ( !checkResult(result, "AUGraphNodeInfo") ) return NO;
     
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     [self configureAudioUnit];
 #endif
     
@@ -2370,13 +2414,13 @@ static void interAppConnectedChangeCallback(void *inRefCon, AudioUnit inUnit, Au
 
 - (void)replaceIONode {
     if ( !_topChannel ) return;
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     BOOL useVoiceProcessing = [self usingVPIO];
 #endif
     
     AudioComponentDescription io_desc = {
         .componentType = kAudioUnitType_Output,
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
         .componentSubType = useVoiceProcessing ? kAudioUnitSubType_VoiceProcessingIO : kAudioUnitSubType_RemoteIO,
 #else
         .componentSubType = kAudioUnitSubType_DefaultOutput,
@@ -2396,7 +2440,7 @@ static void interAppConnectedChangeCallback(void *inRefCon, AudioUnit inUnit, Au
         return;
     }
     
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     [self configureAudioUnit];
 #endif
     
@@ -2424,7 +2468,7 @@ static void interAppConnectedChangeCallback(void *inRefCon, AudioUnit inUnit, Au
     }
 }
 
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
 - (void)configureAudioUnit {
     AVAudioSession *audioSession = [AVAudioSession sharedInstance];
     
@@ -2525,7 +2569,7 @@ static void interAppConnectedChangeCallback(void *inRefCon, AudioUnit inUnit, Au
 
     AudioComponentDescription target_io_desc = {
         .componentType = kAudioUnitType_Output,
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
         .componentSubType = useVoiceProcessing ? kAudioUnitSubType_VoiceProcessingIO : kAudioUnitSubType_RemoteIO,
 #else
         .componentSubType = kAudioUnitSubType_VoiceProcessingIO,
@@ -2558,13 +2602,15 @@ static void interAppConnectedChangeCallback(void *inRefCon, AudioUnit inUnit, Au
     NSAssert(_inputEnabled, @"Input must be enabled");
     
     BOOL success = YES;
-    AVAudioSession *audioSession = [AVAudioSession sharedInstance];
     
-    BOOL inputAvailable          = audioSession.inputAvailable;
+    BOOL inputAvailable          = NO;
     BOOL hardwareInputAvailable  = inputAvailable;
     int numberOfInputChannels = _audioDescription.mChannelsPerFrame;
     BOOL usingAudiobus           = NO;
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
+    AVAudioSession *audioSession = [AVAudioSession sharedInstance];
+    inputAvailable          = audioSession.inputAvailable;
+    hardwareInputAvailable  = inputAvailable;
     UInt32 usingIAA              = NO;
     
     UInt32 size = sizeof(usingIAA);
@@ -2679,7 +2725,7 @@ static void interAppConnectedChangeCallback(void *inRefCon, AudioUnit inUnit, Au
                     rawAudioDescription = entry->audioDescription;
                 }
                 
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
                 BOOL useVoiceProcessing = [self usingVPIO];
                 if ( useVoiceProcessing && (_audioDescription.mFormatFlags & kAudioFormatFlagIsNonInterleaved) && [[[UIDevice currentDevice] systemVersion] floatValue] < 5.0 ) {
                     // iOS 4 cannot handle non-interleaved audio and voice processing. Use interleaved audio and a converter.
@@ -2760,7 +2806,7 @@ static void interAppConnectedChangeCallback(void *inRefCon, AudioUnit inUnit, Au
         }
         
     } else if ( !inputAvailable ) {
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
         if ( [_audioSessionCategory isEqualToString:AVAudioSessionCategoryPlayAndRecord] || [_audioSessionCategory isEqualToString:AVAudioSessionCategoryRecord] ) {
             // Update audio session as appropriate (will select a non-recording category for us)
             self.audioSessionCategory = _audioSessionCategory;
@@ -2795,7 +2841,7 @@ static void interAppConnectedChangeCallback(void *inRefCon, AudioUnit inUnit, Au
     int oldInputCallbackCount = _inputCallbackCount;
     audio_level_monitor_t oldInputLevelMonitorData = _inputLevelMonitorData;
     
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     if ( _audiobusReceiverPort && usingAudiobus ) {
         AudioStreamBasicDescription clientFormat = [(id<AEAudiobusForwardDeclarationsProtocol>)_audiobusReceiverPort clientFormat];
         if ( memcmp(&clientFormat, &rawAudioDescription, sizeof(AudioStreamBasicDescription)) != 0 ) {
@@ -2817,7 +2863,7 @@ static void interAppConnectedChangeCallback(void *inRefCon, AudioUnit inUnit, Au
         _inputLevelMonitorData    = inputLevelMonitorData;
     }];
     
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     if ( inputAvailable && (!_audiobusReceiverPort || !ABReceiverPortIsConnected(_audiobusReceiverPort)) ) {
 #else
     if ( inputAvailable ) {
@@ -2873,7 +2919,7 @@ static void interAppConnectedChangeCallback(void *inRefCon, AudioUnit inUnit, Au
     
     if ( inputChannelsChanged || inputAvailableChanged || inputDescriptionChanged ) {
         if ( inputAvailable ) {
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
             NSLog(@"TAAE: Input status updated (%u channel, %@%@%@%@)",
 #else
            NSLog(@"TAAE: Input status updated (%u channel, %@%@%@)",
@@ -2881,7 +2927,7 @@ static void interAppConnectedChangeCallback(void *inRefCon, AudioUnit inUnit, Au
                   (unsigned int)numberOfInputChannels,
                   usingAudiobus ? @"using Audiobus, " : @"",
                   rawAudioDescription.mFormatFlags & kAudioFormatFlagIsNonInterleaved ? @"non-interleaved" : @"interleaved",
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
                  [self usingVPIO] ? @", using voice processing" : @"",
 #endif
                   inputCallbacks[0].audioConverter ? @", with converter" : @"");
@@ -2971,7 +3017,7 @@ static void interAppConnectedChangeCallback(void *inRefCon, AudioUnit inUnit, Au
                     continue;
                 }
                 
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
                 // Set the mixer unit to handle up to 4096 frames per slice to keep rendering during screen lock
                 AudioUnitSetProperty(subgroup->mixerAudioUnit, kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitScope_Global, 0, &kMaxFramesPerSlice, sizeof(kMaxFramesPerSlice));
 #else
@@ -3024,7 +3070,7 @@ static void interAppConnectedChangeCallback(void *inRefCon, AudioUnit inUnit, Au
                             hasFilters = hasReceivers = NO;
                         }
                         
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
                         // Set the audio unit to handle up to 4096 frames per slice to keep rendering during screen lock
                         checkResult(AudioUnitSetProperty(subgroup->converterUnit, kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitScope_Global, 0, &kMaxFramesPerSlice, sizeof(kMaxFramesPerSlice)),
                                     "AudioUnitSetProperty(kAudioUnitProperty_MaximumFramesPerSlice)");
@@ -3315,7 +3361,7 @@ static void removeChannelsFromGroup(__unsafe_unretained AEAudioController *THIS,
         
         [NSThread sleepForTimeInterval:0.5];
         
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
         NSError *e = nil;
         if ( ![((AVAudioSession*)[AVAudioSession sharedInstance]) setActive:YES error:&e] ) {
             NSLog(@"TAAE: Couldn't activate audio session: %@", e);
@@ -3569,7 +3615,7 @@ static void performLevelMonitoring(audio_level_monitor_t* monitor, AudioBufferLi
     }
 }
                   
-#if IS_IOS
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
 - (BOOL)hasAudiobusSenderForUpstreamChannels:(AEChannelRef)channel {
     if ( !channel->parentGroup ) return NO;
     

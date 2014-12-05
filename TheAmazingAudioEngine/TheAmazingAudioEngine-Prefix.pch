@@ -3,15 +3,5 @@
 //
 
 #ifdef __OBJC__
-
     #import <Foundation/Foundation.h>
-
-    #ifdef __MAC_OS_X_VERSION_MAX_ALLOWED
-        #define IS_MAC_OSX 1
-        #define IS_IOS 0
-    #else
-        #define IS_MAC_OSX 0
-        #define IS_IOS 1
-    #endif
-
 #endif
