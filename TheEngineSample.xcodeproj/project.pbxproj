@@ -29,7 +29,6 @@
 		4C0C24BC159A00D500D23E13 /* Accelerate.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C0C24BB159A00D500D23E13 /* Accelerate.framework */; };
 		4C0C24CC159A246500D23E13 /* TPOscilloscopeLayer.m in Sources */ = {isa = PBXBuildFile; fileRef = 4C0C24CB159A246500D23E13 /* TPOscilloscopeLayer.m */; };
 		4C58F8981945573C0039FB0A /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C58F8971945573C0039FB0A /* AVFoundation.framework */; };
-		4C7C67F416F1606600721E60 /* libTheAmazingAudioEngine.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C7C67F116F1605A00721E60 /* libTheAmazingAudioEngine.a */; };
 		4C7C680916F1609800721E60 /* AEExpanderFilter.m in Sources */ = {isa = PBXBuildFile; fileRef = 4C7C67F816F1609800721E60 /* AEExpanderFilter.m */; };
 		4C7C680A16F1609800721E60 /* AELimiter.m in Sources */ = {isa = PBXBuildFile; fileRef = 4C7C67FA16F1609800721E60 /* AELimiter.m */; };
 		4C7C680B16F1609800721E60 /* AELimiterFilter.m in Sources */ = {isa = PBXBuildFile; fileRef = 4C7C67FC16F1609800721E60 /* AELimiterFilter.m */; };
@@ -39,6 +38,7 @@
 		4C7C680F16F1609800721E60 /* README.markdown in Resources */ = {isa = PBXBuildFile; fileRef = 4C7C680416F1609800721E60 /* README.markdown */; };
 		4C7C681016F1609800721E60 /* TPCircularBuffer+AudioBufferList.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C7C680516F1609800721E60 /* TPCircularBuffer+AudioBufferList.c */; };
 		4C7C681116F1609800721E60 /* TPCircularBuffer.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C7C680716F1609800721E60 /* TPCircularBuffer.c */; };
+		B3C9B27F1A310EC1008D2827 /* libTheAmazingAudioEngine.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C7C67F116F1605A00721E60 /* libTheAmazingAudioEngine.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -55,6 +55,27 @@
 			proxyType = 1;
 			remoteGlobalIDString = 4C215CEB1523A7D500D36CAD;
 			remoteInfo = TheAmazingAudioEngine;
+		};
+		B3C9B2781A310E95008D2827 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4C7C67EC16F1605A00721E60 /* TheAmazingAudioEngine.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = B35C44881A308A5B00ABD773;
+			remoteInfo = "TheAmazingAudioEngine-OSX";
+		};
+		B3C9B27A1A310E95008D2827 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4C7C67EC16F1605A00721E60 /* TheAmazingAudioEngine.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = B37331151A30F9CE00E4D221;
+			remoteInfo = "TAAE-Complete-For-Swift";
+		};
+		B3C9B27C1A310E95008D2827 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4C7C67EC16F1605A00721E60 /* TheAmazingAudioEngine.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = B32A732D1A30EF9000FBC208;
+			remoteInfo = "TAAE-Complete-For-Swift-OSX";
 		};
 /* End PBXContainerItemProxy section */
 
@@ -112,8 +133,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B3C9B27F1A310EC1008D2827 /* libTheAmazingAudioEngine.a in Frameworks */,
 				4C58F8981945573C0039FB0A /* AVFoundation.framework in Frameworks */,
-				4C7C67F416F1606600721E60 /* libTheAmazingAudioEngine.a in Frameworks */,
 				4C0C24BC159A00D500D23E13 /* Accelerate.framework in Frameworks */,
 				4C0C24BA159A00CB00D23E13 /* AudioToolbox.framework in Frameworks */,
 				4C0C24B8159A000B00D23E13 /* QuartzCore.framework in Frameworks */,
@@ -197,6 +218,9 @@
 			isa = PBXGroup;
 			children = (
 				4C7C67F116F1605A00721E60 /* libTheAmazingAudioEngine.a */,
+				B3C9B2791A310E95008D2827 /* libTheAmazingAudioEngine-OSX.a */,
+				B3C9B27B1A310E95008D2827 /* libTAAE-Complete-For-Swift.a */,
+				B3C9B27D1A310E95008D2827 /* libTAAE-Complete-For-Swift-OSX.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -301,6 +325,27 @@
 			fileType = archive.ar;
 			path = libTheAmazingAudioEngine.a;
 			remoteRef = 4C7C67F016F1605A00721E60 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		B3C9B2791A310E95008D2827 /* libTheAmazingAudioEngine-OSX.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = "libTheAmazingAudioEngine-OSX.a";
+			remoteRef = B3C9B2781A310E95008D2827 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		B3C9B27B1A310E95008D2827 /* libTAAE-Complete-For-Swift.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = "libTAAE-Complete-For-Swift.a";
+			remoteRef = B3C9B27A1A310E95008D2827 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		B3C9B27D1A310E95008D2827 /* libTAAE-Complete-For-Swift-OSX.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = "libTAAE-Complete-For-Swift-OSX.a";
+			remoteRef = B3C9B27C1A310E95008D2827 /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 /* End PBXReferenceProxy section */

@@ -29,6 +29,9 @@ extern "C" {
 
 #import <AudioToolbox/AudioToolbox.h>
 #import <AudioUnit/AudioUnit.h>
+#if IS_MAC_OSX
+    #import "AEMacOSAudioSessionAdapter.h"
+#endif
 
 @class AEAudioController;
 
@@ -1317,6 +1320,7 @@ NSTimeInterval AEConvertFramesToSeconds(AEAudioController *audioController, long
  */
 @property (nonatomic, readonly) AUGraph audioGraph;
 
+#if IS_IOS
 #pragma mark - C access to properties
 
 /*!
@@ -1350,6 +1354,7 @@ NSTimeInterval AEAudioControllerInputLatency(AEAudioController *controller);
  * @returns The currently-reported hardware output latency
  */
 NSTimeInterval AEAudioControllerOutputLatency(AEAudioController *controller);
+#endif
 
 @end
 

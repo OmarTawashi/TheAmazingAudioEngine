@@ -26,6 +26,9 @@
 #import "AEAudioFileWriter.h"
 #import "TheAmazingAudioEngine.h"
 #import <AVFoundation/AVFoundation.h>
+#if IS_MAC_OSX
+    #import "AEMacOSAudioSessionAdapter.h"
+#endif
 
 NSString * const AEAudioFileWriterErrorDomain = @"com.theamazingaudioengine.AEAudioFileWriterErrorDomain";
 

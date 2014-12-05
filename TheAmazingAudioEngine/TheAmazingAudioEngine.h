@@ -30,7 +30,9 @@ extern "C" {
 #endif
 
 #import "AEAudioController.h"
-#import "AEAudioController+Audiobus.h"
+#if IS_IOS
+    #import "AEAudioController+Audiobus.h"
+#endif
 #import "AEAudioFileLoaderOperation.h"
 #import "AEAudioFilePlayer.h"
 #import "AEAudioFileWriter.h"

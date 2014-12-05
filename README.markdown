@@ -1,6 +1,10 @@
 The Amazing Audio Engine
 ========================
 
+This is a modified version: I've modified it to work on Mac OS X 10.9+ and included a demo project has a Swift Spritkit based iOS and Mac demo app.
+
+========================
+
 The Amazing Audio Engine is a sophisticated framework for iOS audio applications, built so you don't have to.
 
 It is designed to be very easy to work with, and handles all of the intricacies of iOS audio on your behalf.
