@@ -7,12 +7,20 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B317BF081A3A3BF900F7F7E0 /* bg_music_11khz8bit.wav in Resources */ = {isa = PBXBuildFile; fileRef = B317BF061A3A3BF900F7F7E0 /* bg_music_11khz8bit.wav */; };
+		B317BF091A3A3BF900F7F7E0 /* bg_music_11khz8bit.wav in Resources */ = {isa = PBXBuildFile; fileRef = B317BF061A3A3BF900F7F7E0 /* bg_music_11khz8bit.wav */; };
+		B317BF0A1A3A3BF900F7F7E0 /* bg_music_11khz16bit.wav in Resources */ = {isa = PBXBuildFile; fileRef = B317BF071A3A3BF900F7F7E0 /* bg_music_11khz16bit.wav */; };
+		B317BF0B1A3A3BF900F7F7E0 /* bg_music_11khz16bit.wav in Resources */ = {isa = PBXBuildFile; fileRef = B317BF071A3A3BF900F7F7E0 /* bg_music_11khz16bit.wav */; };
+		B361F9A11A38F58D0061E175 /* AEAUAudioFilePlayerChannel.m in Sources */ = {isa = PBXBuildFile; fileRef = B361F9A01A38F58D0061E175 /* AEAUAudioFilePlayerChannel.m */; };
+		B361F9A21A38F58D0061E175 /* AEAUAudioFilePlayerChannel.m in Sources */ = {isa = PBXBuildFile; fileRef = B361F9A01A38F58D0061E175 /* AEAUAudioFilePlayerChannel.m */; };
 		B37218C71A31EA4C0061C074 /* libTheAmazingAudioEngine.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B37330E91A30F9AD00E4D221 /* libTheAmazingAudioEngine.a */; };
 		B37218C81A31EA510061C074 /* libTheAmazingAudioEngine-OSX.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B37330EB1A30F9AD00E4D221 /* libTheAmazingAudioEngine-OSX.a */; };
 		B3AD74171A30F18500CDE9E3 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3AD74161A30F18500CDE9E3 /* AppDelegate.swift */; };
 		B3AD741D1A30F18500CDE9E3 /* GameViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3AD741C1A30F18500CDE9E3 /* GameViewController.swift */; };
 		B3AD74201A30F18500CDE9E3 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = B3AD741E1A30F18500CDE9E3 /* Main.storyboard */; };
 		B3AD74221A30F18500CDE9E3 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B3AD74211A30F18500CDE9E3 /* Images.xcassets */; };
+		B3C885C51A379B47004EFFD1 /* VolumePanPitch.aupreset in Resources */ = {isa = PBXBuildFile; fileRef = B3C885C41A379B47004EFFD1 /* VolumePanPitch.aupreset */; };
+		B3C885C61A379B47004EFFD1 /* VolumePanPitch.aupreset in Resources */ = {isa = PBXBuildFile; fileRef = B3C885C41A379B47004EFFD1 /* VolumePanPitch.aupreset */; };
 		B3C9B2961A31141A008D2827 /* bg_music.wav in Resources */ = {isa = PBXBuildFile; fileRef = B3C9B2921A31141A008D2827 /* bg_music.wav */; };
 		B3C9B2971A31141A008D2827 /* bg_music.wav in Resources */ = {isa = PBXBuildFile; fileRef = B3C9B2921A31141A008D2827 /* bg_music.wav */; };
 		B3C9B2981A31141A008D2827 /* effect1.caf in Resources */ = {isa = PBXBuildFile; fileRef = B3C9B2931A31141A008D2827 /* effect1.caf */; };
@@ -21,6 +29,8 @@
 		B3C9B29B1A31141A008D2827 /* effect2.caf in Resources */ = {isa = PBXBuildFile; fileRef = B3C9B2941A31141A008D2827 /* effect2.caf */; };
 		B3C9B29C1A31141A008D2827 /* Spaceship.png in Resources */ = {isa = PBXBuildFile; fileRef = B3C9B2951A31141A008D2827 /* Spaceship.png */; };
 		B3C9B29D1A31141A008D2827 /* Spaceship.png in Resources */ = {isa = PBXBuildFile; fileRef = B3C9B2951A31141A008D2827 /* Spaceship.png */; };
+		B3D513A51A362CE4003F7F9A /* VEAEforGames.m in Sources */ = {isa = PBXBuildFile; fileRef = B3D513A41A362CE4003F7F9A /* VEAEforGames.m */; };
+		B3D513A61A362CE4003F7F9A /* VEAEforGames.m in Sources */ = {isa = PBXBuildFile; fileRef = B3D513A41A362CE4003F7F9A /* VEAEforGames.m */; };
 		B3F109971A30F1E20062B2E7 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3F109961A30F1E20062B2E7 /* AppDelegate.swift */; };
 		B3F1099D1A30F1E20062B2E7 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B3F1099C1A30F1E20062B2E7 /* Images.xcassets */; };
 		B3F109A01A30F1E20062B2E7 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = B3F1099E1A30F1E20062B2E7 /* MainMenu.xib */; };
@@ -55,6 +65,10 @@
 
 /* Begin PBXFileReference section */
 		B306A5511A31008300DA07EE /* TAAE-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "TAAE-Bridging-Header.h"; path = "TheGameSample/TAAE-Bridging-Header.h"; sourceTree = "<group>"; };
+		B317BF061A3A3BF900F7F7E0 /* bg_music_11khz8bit.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = bg_music_11khz8bit.wav; sourceTree = "<group>"; };
+		B317BF071A3A3BF900F7F7E0 /* bg_music_11khz16bit.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = bg_music_11khz16bit.wav; sourceTree = "<group>"; };
+		B361F99F1A38F58D0061E175 /* AEAUAudioFilePlayerChannel.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AEAUAudioFilePlayerChannel.h; sourceTree = "<group>"; };
+		B361F9A01A38F58D0061E175 /* AEAUAudioFilePlayerChannel.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AEAUAudioFilePlayerChannel.m; sourceTree = "<group>"; };
 		B37330E21A30F9AD00E4D221 /* TheAmazingAudioEngine.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TheAmazingAudioEngine.xcodeproj; sourceTree = "<group>"; };
 		B3AD74111A30F18500CDE9E3 /* TheGameSample-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "TheGameSample-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		B3AD74151A30F18500CDE9E3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -62,10 +76,14 @@
 		B3AD741C1A30F18500CDE9E3 /* GameViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameViewController.swift; sourceTree = "<group>"; };
 		B3AD741F1A30F18500CDE9E3 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		B3AD74211A30F18500CDE9E3 /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
+		B3C885C41A379B47004EFFD1 /* VolumePanPitch.aupreset */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = VolumePanPitch.aupreset; sourceTree = "<group>"; };
+		B3C885CA1A37B518004EFFD1 /* AUMIDIDefs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AUMIDIDefs.h; sourceTree = "<group>"; };
 		B3C9B2921A31141A008D2827 /* bg_music.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = bg_music.wav; sourceTree = "<group>"; };
 		B3C9B2931A31141A008D2827 /* effect1.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = effect1.caf; sourceTree = "<group>"; };
 		B3C9B2941A31141A008D2827 /* effect2.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = effect2.caf; sourceTree = "<group>"; };
 		B3C9B2951A31141A008D2827 /* Spaceship.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Spaceship.png; sourceTree = "<group>"; };
+		B3D513A31A362CE4003F7F9A /* VEAEforGames.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VEAEforGames.h; sourceTree = "<group>"; };
+		B3D513A41A362CE4003F7F9A /* VEAEforGames.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = VEAEforGames.m; sourceTree = "<group>"; };
 		B3F109921A30F1E20062B2E7 /* TheGameSample-Mac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "TheGameSample-Mac.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		B3F109951A30F1E20062B2E7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B3F109961A30F1E20062B2E7 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -155,6 +173,8 @@
 		B3C9B2911A31141A008D2827 /* SharedAssets */ = {
 			isa = PBXGroup;
 			children = (
+				B317BF061A3A3BF900F7F7E0 /* bg_music_11khz8bit.wav */,
+				B317BF071A3A3BF900F7F7E0 /* bg_music_11khz16bit.wav */,
 				B3C9B2921A31141A008D2827 /* bg_music.wav */,
 				B3C9B2931A31141A008D2827 /* effect1.caf */,
 				B3C9B2941A31141A008D2827 /* effect2.caf */,
@@ -162,6 +182,20 @@
 			);
 			name = SharedAssets;
 			path = TheGameSample/SharedAssets;
+			sourceTree = "<group>";
+		};
+		B3D513A21A362CCB003F7F9A /* VEAEforGames */ = {
+			isa = PBXGroup;
+			children = (
+				B361F99F1A38F58D0061E175 /* AEAUAudioFilePlayerChannel.h */,
+				B361F9A01A38F58D0061E175 /* AEAUAudioFilePlayerChannel.m */,
+				B3C885C41A379B47004EFFD1 /* VolumePanPitch.aupreset */,
+				B3C885CA1A37B518004EFFD1 /* AUMIDIDefs.h */,
+				B3D513A31A362CE4003F7F9A /* VEAEforGames.h */,
+				B3D513A41A362CE4003F7F9A /* VEAEforGames.m */,
+			);
+			name = VEAEforGames;
+			path = TheGameSample/VEAEforGames;
 			sourceTree = "<group>";
 		};
 		B3F109931A30F1E20062B2E7 /* TheGameSample-Mac */ = {
@@ -186,6 +220,7 @@
 		B3F109B31A30F3010062B2E7 /* CrossPlatform */ = {
 			isa = PBXGroup;
 			children = (
+				B3D513A21A362CCB003F7F9A /* VEAEforGames */,
 				B3C9B2911A31141A008D2827 /* SharedAssets */,
 				B306A5511A31008300DA07EE /* TAAE-Bridging-Header.h */,
 				B3F109B41A30F3160062B2E7 /* GameScene.sks */,
@@ -308,7 +343,10 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B317BF0A1A3A3BF900F7F7E0 /* bg_music_11khz16bit.wav in Resources */,
+				B317BF081A3A3BF900F7F7E0 /* bg_music_11khz8bit.wav in Resources */,
 				B3C9B29C1A31141A008D2827 /* Spaceship.png in Resources */,
+				B3C885C51A379B47004EFFD1 /* VolumePanPitch.aupreset in Resources */,
 				B3F109B61A30F3160062B2E7 /* GameScene.sks in Resources */,
 				B3F109C11A30F3600062B2E7 /* Default-568h@2x.png in Resources */,
 				B3C9B29A1A31141A008D2827 /* effect2.caf in Resources */,
@@ -328,11 +366,14 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B317BF091A3A3BF900F7F7E0 /* bg_music_11khz8bit.wav in Resources */,
 				B3C9B29D1A31141A008D2827 /* Spaceship.png in Resources */,
 				B3F1099D1A30F1E20062B2E7 /* Images.xcassets in Resources */,
 				B3C9B2971A31141A008D2827 /* bg_music.wav in Resources */,
+				B317BF0B1A3A3BF900F7F7E0 /* bg_music_11khz16bit.wav in Resources */,
 				B3C9B29B1A31141A008D2827 /* effect2.caf in Resources */,
 				B3C9B2991A31141A008D2827 /* effect1.caf in Resources */,
+				B3C885C61A379B47004EFFD1 /* VolumePanPitch.aupreset in Resources */,
 				B3F109B71A30F3160062B2E7 /* GameScene.sks in Resources */,
 				B3F109A01A30F1E20062B2E7 /* MainMenu.xib in Resources */,
 			);
@@ -347,6 +388,8 @@
 			files = (
 				B3F109B81A30F3160062B2E7 /* GameScene.swift in Sources */,
 				B3AD741D1A30F18500CDE9E3 /* GameViewController.swift in Sources */,
+				B361F9A11A38F58D0061E175 /* AEAUAudioFilePlayerChannel.m in Sources */,
+				B3D513A51A362CE4003F7F9A /* VEAEforGames.m in Sources */,
 				B3AD74171A30F18500CDE9E3 /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -357,6 +400,8 @@
 			files = (
 				B3F109B91A30F3160062B2E7 /* GameScene.swift in Sources */,
 				B3F109971A30F1E20062B2E7 /* AppDelegate.swift in Sources */,
+				B3D513A61A362CE4003F7F9A /* VEAEforGames.m in Sources */,
+				B361F9A21A38F58D0061E175 /* AEAUAudioFilePlayerChannel.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

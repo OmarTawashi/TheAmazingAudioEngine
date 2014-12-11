@@ -22,14 +22,21 @@ func randomFloat() -> Float {
 /// This controlls the SpriteKit SKScene for both the Mac and iOS targets!
 class GameScene: SKScene {
     
-    var _audCtrlr : AEAudioController!
+    var _audCtrlr : AEAudioController = audInit(nil)
 //    var _bgMusic  : AEAudioUnitFilePlayer! // looping doesn't work
     var _bgMusic  : AEAudioFilePlayer! // takes more memory... keep your background sound files short, and perhaps use lower bitrate (e.g. 22050)
-    var _snd1     : AEAudioFilePlayer!
-    var _snd2     : AEAudioFilePlayer!
+//    var _snd1     : AEAudioFilePlayer!
+//    var _snd2     : AEAudioFilePlayer!
     
-    var _snd1PanIncr : Float = 0.066
-    var _snd2PanIncr : Float = -0.033
+//    var _snd1PanIncr : Float = 0.066
+//    var _snd2PanIncr : Float = -0.033
+    
+    var _samplerChannel : SamplerChannel!
+    var _samplerVolume = Float(1.0)
+    var _samplerPitch  = Float(0.0)
+    var _samplerPitchIncr = Float(0.1)
+    var _samplerPan    = Float(1.0)
+    var _samplerPanIncr = Float(-0.05)
     
     var btnBgSnd, btnEffects : SKLabelNode!
     
@@ -54,47 +61,64 @@ class GameScene: SKScene {
         btnEffects.position = CGPoint(x:CGRectGetMidX(frame), y:CGRectGetMidY(frame) - 64);
         addChild(btnEffects)
         
-        // Init audio controller
-//        #if os(iOS)
-//            var audioDesc = AEAudioController.nonInterleaved16BitStereoAudioDescription() // this does not work on Mac
-//        #else
-            var audioDesc = AEAudioController.nonInterleavedFloatStereoAudioDescription() // this works on both Mac & iOS
-//        #endif
-        audioDesc.mSampleRate = 22050.0 // I like to use 22050.0 for games
+        // Preload audio
+        _samplerChannel = audLoadEffect(NSBundle.mainBundle().pathForResource("effect1", ofType: "caf"), 1.0, 0.0, false)
         
-        if let audCtrlr = AEAudioController(audioDescription: audioDesc) {
-            _audCtrlr = audCtrlr
-        } else {
-            fatalError("ERROR: Couldn't instantiate an AEAudioController.")
-        }
-        
-        // Start the audio controller
-        var err : NSErrorPointer = nil
-        if _audCtrlr.start(err) != true {
-            fatalError("ERROR: Couldn't start the AEAudioController.  Error.debugDescription: \(err.debugDescription)")
-        }
+        // TEST
+        audLoadAmbience(NSBundle.mainBundle().pathForResource("HiQualityMix96.7", ofType: "wav"), 1.0, 0.0, 0)
         
         // on iOS let's let the user know to use headphones to be able to hear the panning effects
-        #if os(iOS)
-            runAction(SKAction.sequence([SKAction.waitForDuration(0.65), SKAction.runBlock({
-                let alertView = UIAlertView(title: "Tip of the Day", message: "To hear the panning effect, use headphones!\n\nThe pitch and rate are being set randomly but only on one sound effect (the organ); see the source code for more information.", delegate: nil, cancelButtonTitle: "OK")
-                alertView.show()
-            })]))
-        #endif
+//        #if os(iOS)
+//            runAction(SKAction.sequence([SKAction.waitForDuration(0.65), SKAction.runBlock({
+//                let alertView = UIAlertView(title: "Tip of the Day", message: "To hear the panning effect, use headphones!\n\nThe pitch and rate are being set randomly but only on one sound effect (the organ); see the source code for more information.", delegate: nil, cancelButtonTitle: "OK")
+//                alertView.show()
+//            })]))
+//        #endif
     }
     
     
     override func update(currentTime: CFTimeInterval) {
         /* Called before each frame is rendered */
         
+//        if _samplerVolume > 0.0 && _samplerChannel != nil {
+//            
+//            // Volume
+//            _samplerVolume -= 0.01
+//            audMidiControlChange(_samplerChannel.audioUnit, 7, max(0,Int32(127 * _samplerVolume)))
+//            
+//            // Pan
+//            _samplerPan = max(0.0,min(1.0, _samplerPan + _samplerPanIncr))
+//            if _samplerPan <= 0 || _samplerPan >= 1.0 {
+//                _samplerPanIncr *= -1.0
+//            }
+//            audMidiControlChange(_samplerChannel.audioUnit, 10, max(0,Int32(127 * _samplerPan)))
+//            
+//            // Pitch
+//            _samplerPitch = max(0.0,min(1.0, _samplerPitch + _samplerPitchIncr))
+//            if _samplerPitch <= 0.0 || _samplerPitch >= 1.0 {
+//                _samplerPitchIncr *= -1.0
+//            }
+//            audMidiPitchBend(_samplerChannel.audioUnit, max(1, Int16(126 * _samplerPitch)))
+//            
+//            
+//            if _samplerVolume <= 0 {
+//                // Hacked reset for TESTING
+//                let chnl = _samplerChannel
+//                _samplerChannel = nil
+//                _samplerVolume = 1.0
+//                runAction(SKAction.sequence([SKAction.waitForDuration(0.1),SKAction.runBlock({self._audCtrlr.removeChannels([chnl])})]))
+//            }
+//        }
+        
+        
         // Just playing around a bit: this tests out panning the effects independently of each other (useful for game sound effects)
-        if _snd1 != nil {
-            _snd1.pan += _snd1PanIncr
-            if _snd1.pan > 0.99 || _snd1.pan < -0.99 { _snd1PanIncr *= -1.0 }
-            
-            _snd2.pan += _snd2PanIncr
-            if _snd2.pan > 0.99 || _snd2.pan < -0.99 { _snd2PanIncr *= -1.0 }
-        }
+//        if _snd1 != nil {
+//            _snd1.pan += _snd1PanIncr
+//            if _snd1.pan > 0.99 || _snd1.pan < -0.99 { _snd1PanIncr *= -1.0 }
+//            
+//            _snd2.pan += _snd2PanIncr
+//            if _snd2.pan > 0.99 || _snd2.pan < -0.99 { _snd2PanIncr *= -1.0 }
+//        }
     }
     
     
@@ -112,7 +136,6 @@ class GameScene: SKScene {
             var err : NSErrorPointer = nil
             _bgMusic = AEAudioFilePlayer.audioFilePlayerWithURL(NSBundle.mainBundle().URLForResource("bg_music", withExtension: "wav"), audioController: _audCtrlr, error: err) as AEAudioFilePlayer
             if _bgMusic == nil {
-                _doResetEffectSounds()
                 println("Could not load bgMusic !")
                 return
             }
@@ -128,115 +151,9 @@ class GameScene: SKScene {
     }
     
     
-    // This function shows you how you can change the speed of the sound, which changes pitch too
-    func _doAddNewVarispeedFilter(snd : AEAudioFilePlayer) { // you could add a "rate" parameter
-        // Make an AudioUnit based filter and use the Varispeed audio unit to change pitch
-        if let pitchFilter = AEAudioUnitFilter(componentDescription: AEAudioComponentDescriptionMake(
-            OSType(kAudioUnitManufacturer_Apple),
-            OSType(kAudioUnitType_FormatConverter),
-            OSType(kAudioUnitSubType_Varispeed)),
-            audioController: _audCtrlr, error:nil) {
-                let status = AudioUnitSetParameter(
-                    pitchFilter.audioUnit,                // inUnit : AudioUnit
-                    OSType(kVarispeedParam_PlaybackRate), // inID: AudioUnitParameterID
-                    OSType(kAudioUnitScope_Global),       // inScope: AudioUnitScope
-                    0,                                    // inElement: AudioUnitElement
-                    1.25,                                 // inValue: AudioUnitParameterValue
-                    0);                                   // inBufferOffsetInFrames: UInt32
-                if status == noErr {
-                    _audCtrlr.addFilter(pitchFilter, toChannel: snd)
-                }
-        } // END if pitchFilter (Varispeed based)
-    }
-    
-    
-    // This function shows how you can change both pitch and rate independently
-    func _doAddNewTimePitchFilter(snd : AEAudioFilePlayer) { // you could add 2 parameters, one for rate and one for pitch
-        
-        // Make an AudioUnit based filter and use the NewTimePitch audio unit to change pitch AND rate at the same time!
-        if let pitchFilter = AEAudioUnitFilter(componentDescription: AEAudioComponentDescriptionMake(
-            OSType(kAudioUnitManufacturer_Apple),
-            OSType(kAudioUnitType_FormatConverter),
-            OSType(kAudioUnitSubType_NewTimePitch)),
-            audioController: _audCtrlr, error:nil) {
-                
-                // Random time-stretch
-                var f = AudioUnitParameterValue(randomFloat()) * 0.3 // a value between 0 and 0.3
-                if randomFloat() > 0.5 {
-                    f *= -1.0
-                }
-                var status = AudioUnitSetParameter(
-                    pitchFilter.audioUnit,              // inUnit : AudioUnit
-                    OSType(kNewTimePitchParam_Rate),    // inID: AudioUnitParameterID
-                    OSType(kAudioUnitScope_Global),     // inScope: AudioUnitScope
-                    0,                                  // inElement: AudioUnitElement
-                    1.0 + f,                            // inValue: AudioUnitParameterValue
-                    0);                                 // inBufferOffsetInFrames: UInt32
-                
-                if status == noErr {
-                    
-                    // Random pitch
-                    let i = AudioUnitParameterValue(100 + arc4random_uniform(1100)) // we could do anything from 0 to 2400
-                    let randomPitch = i * AudioUnitParameterValue((randomFloat() > 0.5 ? 1 : -1))
-                    status = AudioUnitSetParameter(
-                        pitchFilter.audioUnit,              // inUnit : AudioUnit
-                        OSType(kNewTimePitchParam_Pitch),   // inID: AudioUnitParameterID
-                        OSType(kAudioUnitScope_Global),     // inScope: AudioUnitScope
-                        0,                                  // inElement: AudioUnitElement
-                        randomPitch,                        // inValue: AudioUnitParameterValue, +/-2400
-                        0);                                 // inBufferOffsetInFrames: UInt32
-                    if status == noErr {
-                        _audCtrlr.addFilter(pitchFilter, toChannel: snd)
-                    }
-                }
-        } // END if pitchFilter (NewTimePitch based)
-    }
-    
-    
-    func _doResetEffectSounds() {
-        _audCtrlr.removeChannels([_snd1, _snd2])
-        _snd1 = nil
-        _snd2 = nil
-        _snd1PanIncr = abs(_snd1PanIncr)
-        _snd2PanIncr = -abs(_snd2PanIncr)
-    }
-    
-    
-    func _doStartSndEffects() {
-        if _snd1 == nil {
-            var err : NSErrorPointer = nil
-            
-            // Load sound 1
-            _snd1 = AEAudioFilePlayer.audioFilePlayerWithURL(NSBundle.mainBundle().URLForResource("effect1", withExtension: "caf"), audioController: _audCtrlr, error: err) as AEAudioFilePlayer
-            if _snd1 == nil {
-                _doResetEffectSounds()
-                println("Could not load snd1 !")
-                return
-            }
-            _snd1.pan = -1.0
-            _snd1.loop = true
-            
-            // Load sound 2
-            _snd2 = AEAudioFilePlayer.audioFilePlayerWithURL(NSBundle.mainBundle().URLForResource("effect2", withExtension: "caf"), audioController: _audCtrlr, error: err) as AEAudioFilePlayer
-            if _snd2 == nil {
-                _doResetEffectSounds()
-                println("Could not load snd2 !")
-                return
-            }
-            _snd2.pan = 1.0
-            _snd2.loop = true
-            
-            // Start the sounds playing back
-            _audCtrlr.addChannels([_snd1, _snd2])
-            
-            // Just for fun...
-            _doAddNewTimePitchFilter(_snd1) // organ "one shot" sound
-            
-        } else {
-            // Stop playback of the looping sound effects and reset for next button press
-            _doResetEffectSounds()
-        }
-    }
+//    func playSound( filename : String ) {
+//        audPlay(NSBundle.mainBundle().pathForResource(filename, ofType: "caf"))
+//    }
     
     
     /// EVENTS
@@ -245,27 +162,38 @@ class GameScene: SKScene {
         if btnBgSnd.containsPoint(p) {
             if btnBgSnd.yScale > 0.99 && btnBgSnd.yScale < 1.01 { // prevents fast repeated taps
                 _doBtnBoing(btnBgSnd)
-                runAction(SKAction.runBlock(_doStartBgMusic))
+//                runAction(SKAction.runBlock(_doStartBgMusic))
+                runAction(SKAction.runBlock({
+                    self._samplerChannel = nil
+                    self._samplerVolume = 1.0
+                    self._samplerPitch = 0.0
+                    self._audCtrlr.removeChannels(self._audCtrlr.channels())
+                }))
             }
         } else if btnEffects.containsPoint(p) {
-            if btnEffects.yScale > 0.99 && btnEffects.yScale < 1.01 { // prevents fast repeated taps
+//            if btnEffects.yScale > 0.99 && btnEffects.yScale < 1.01 { // prevents fast repeated taps
                 _doBtnBoing(btnEffects)
-                runAction(SKAction.runBlock(_doStartSndEffects))
-            }
+//                let filename = "effect1"//randomFloat() > 0.5 ? "effect1" : "effect2"
+//                _samplerChannel = audPlay(NSBundle.mainBundle().pathForResource(filename, ofType: "caf"))
+                runAction(SKAction.runBlock({ audPlayEffect(self._samplerChannel, 1.0) }))
+                
+                // The let a= works around Swift bug with a C func that returns something.
+//                runAction(SKAction.runBlock({ let a=audPlay(NSBundle.mainBundle().pathForResource(filename, ofType: "caf"))?; }))
+//            }
         } else {
             
             // Just some sample code from original Xcode generated project:
-            let sprite = SKSpriteNode(imageNamed:"Spaceship")
-            
-            sprite.xScale = 0.5
-            sprite.yScale = 0.5
-            sprite.position = p
-            
-            let action = SKAction.rotateByAngle(CGFloat(M_PI) * (randomFloat() > 0.5 ? 1.0 : -1.0) , duration:0.5 + 0.5 * Double(arc4random_uniform(5)))
-            
-            sprite.runAction(SKAction.repeatActionForever(action))
-            
-            addChild(sprite)
+//            let sprite = SKSpriteNode(imageNamed:"Spaceship")
+//            
+//            sprite.xScale = 0.5
+//            sprite.yScale = 0.5
+//            sprite.position = p
+//            
+//            let action = SKAction.rotateByAngle(CGFloat(M_PI) * (randomFloat() > 0.5 ? 1.0 : -1.0) , duration:0.5 + 0.5 * Double(arc4random_uniform(5)))
+//            
+//            sprite.runAction(SKAction.repeatActionForever(action))
+//            
+//            addChild(sprite)
         }
     }
     
