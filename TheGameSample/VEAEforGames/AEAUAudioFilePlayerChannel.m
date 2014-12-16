@@ -51,6 +51,7 @@ static inline BOOL _checkResult(OSStatus result, const char *operation, const ch
     UInt32 _numLoopsCompleted;
     NSTimeInterval _currentTime;
     Float64 _outSampleRate;
+    BOOL _outputIsSilence;
 }
 @end
 
@@ -63,6 +64,7 @@ static inline BOOL _checkResult(OSStatus result, const char *operation, const ch
 @synthesize completionBlock  = _completionBlock;
 @synthesize startLoopBlock   = _startLoopBlock;
 @synthesize removeUponFinish = _removeUponFinish;
+@synthesize outputIsSilence = _outputIsSilence;
 
 - (id)initWithFileURL:(NSURL*)fileURL
       audioController:(AEAudioController*)audioController
@@ -88,6 +90,7 @@ static inline BOOL _checkResult(OSStatus result, const char *operation, const ch
     _fileURL = fileURL;
     _loop = shouldLoop;
     _numLoopsCompleted = 0;
+    _outputIsSilence = YES;
     
     if ( ![self setup:block error:error] ) {
         return nil;
@@ -244,6 +247,7 @@ static inline BOOL _checkResult(OSStatus result, const char *operation, const ch
 static void notifyPlaybackStopped(AEAudioController *audioController, void *userInfo, int length) {
     AEAUAudioFilePlayerChannel *THIS = (__bridge AEAUAudioFilePlayerChannel*)*(void**)userInfo;
     THIS->_channelIsPlaying = NO;
+    THIS->_outputIsSilence = YES;
     
     if ( THIS->_removeUponFinish ) {
         [audioController removeChannels:@[THIS]];
@@ -273,24 +277,34 @@ static OSStatus renderCallback(__unsafe_unretained AEAUAudioFilePlayerChannel *T
     AudioUnitRenderActionFlags flags = 0;
     checkResult(AudioUnitRender(THIS->_audioUnit, &flags, time, 0, frames, audio), "AudioUnitRender");
     
-    // Update the current time
+    // Update outputIsSilence status
+    THIS->_outputIsSilence = (flags & kAudioUnitRenderAction_OutputIsSilence);
+    
+    // Get our current time data
     AudioTimeStamp ts;
     UInt32 size = sizeof(ts);
     AudioUnitGetProperty(THIS->_audioUnit, kAudioUnitProperty_CurrentPlayTime, kAudioUnitScope_Global, 0, &ts, &size);
-    THIS->_currentTime = ts.mSampleTime / THIS->_outSampleRate;
     
     // Check for callbacks to be done
     if(THIS->_loop) {
         
         // Looping callback
         UInt32 currentNumLoops = floor(ts.mSampleTime / THIS->_mFramesToPlay);
+        
+        // Update current time relative to the start of the file (instead of overall playback time)
+        THIS->_currentTime = (ts.mSampleTime - ((float)currentNumLoops * THIS->_mFramesToPlay)) / THIS->_outSampleRate;
+        
+        // If we are on a new loop number, trigger the startLoop callback
         if(currentNumLoops > THIS->_numLoopsCompleted) {
             THIS->_numLoopsCompleted++;
             AEAudioControllerSendAsynchronousMessageToMainThread(audioController, notifyStartLoopBlock, &THIS, sizeof(AEAUAudioFilePlayerChannel*));
         }
     } else {
         
-        // Completion callback
+        // Update current time
+        THIS->_currentTime = ts.mSampleTime / THIS->_outSampleRate;
+        
+        // If we're in the last renderCallback, trigger the completion callback
         UInt32 remainderPlusFramesThisRender = ((UInt32)ts.mSampleTime % THIS->_mFramesToPlay) + frames;
         if(remainderPlusFramesThisRender >= THIS->_mFramesToPlay) {
             AEAudioControllerSendAsynchronousMessageToMainThread(audioController, notifyPlaybackStopped, &THIS, sizeof(AEAUAudioFilePlayerChannel*));

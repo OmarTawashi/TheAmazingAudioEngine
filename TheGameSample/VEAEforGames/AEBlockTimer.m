@@ -1,66 +1,47 @@
 //
-//  TPPreciseTimer.m
-//  Loopy
+//  AEBlockTimer.m
+//  The Amazing Audio Engine
 //
-//  Created by Michael Tyson on 06/09/2011.
+//  Based on TPPreciseTimer.m which was created by Michael Tyson on 06/09/2011.
 //  Copyright 2011 A Tasty Pixel. All rights reserved.
 //
+//  This file was created by Leo Thiessen on 12/12/2014.
+//
 
-#import "TPPreciseTimer.h"
+#import "AEBlockTimer.h"
 #import <mach/mach_time.h>
 #import <pthread.h>
 
 #define kSpinLockTime 0.01
-//#define kAnalyzeTiming // Uncomment to display timing discrepancy reports
 
-static TPPreciseTimer *__sharedInstance = nil;
+static AEBlockTimer *__sharedInstance = nil;
 
-static NSString *kTimeKey = @"time";
-static NSString *kTargetKey = @"target";
-static NSString *kSelectorKey = @"selector";
-static NSString *kArgumentKey = @"argument";
-#if NS_BLOCKS_AVAILABLE
-static NSString *kBlockKey = @"block";
-#endif
+static const int kBlockIndex = 0;
+static const int kDelayIndex = 1;
+static const int kTimeIndex  = 2;
 
-@interface TPPreciseTimer ()
-- (void)scheduleAction:(SEL)action target:(id)target inTimeInterval:(NSTimeInterval)timeInterval;
-- (void)scheduleAction:(SEL)action target:(id)target context:(id)context inTimeInterval:(NSTimeInterval)timeInterval;
-- (void)cancelAction:(SEL)action target:(id)target;
-- (void)cancelAction:(SEL)action target:(id)target context:(id)context;
-#if NS_BLOCKS_AVAILABLE
-- (void)scheduleBlock:(void (^)(void))block inTimeInterval:(NSTimeInterval)timeInterval;
-#endif
-- (void)addSchedule:(NSDictionary*)schedule;
+@interface AEBlockTimer ()
+- (void)scheduleBlock:(ae_timer_block_t)block inTimeInterval:(NSTimeInterval)timeInterval;
+- (void)addSchedule:(NSArray*)schedule;
 void thread_signal(int signal);
 void *thread_entry(void* argument);
 - (void)thread;
 @end
 
-@implementation TPPreciseTimer
+@implementation AEBlockTimer {
+    double timebase_ratio;
+    
+    NSMutableArray *events;
+    NSCondition *condition;
+    pthread_t thread;
+    
+    unsigned long _eventsCount;
+}
 
-+ (void)scheduleAction:(SEL)action target:(id)target inTimeInterval:(NSTimeInterval)timeInterval {
-    if ( !__sharedInstance ) __sharedInstance = [[TPPreciseTimer alloc] init];
-    [__sharedInstance scheduleAction:action target:target inTimeInterval:timeInterval];
-}
-+ (void)scheduleAction:(SEL)action target:(id)target context:(id)context inTimeInterval:(NSTimeInterval)timeInterval {
-    if ( !__sharedInstance ) __sharedInstance = [[TPPreciseTimer alloc] init];
-    [__sharedInstance scheduleAction:action target:target context:context inTimeInterval:timeInterval];
-}
-+ (void)cancelAction:(SEL)action target:(id)target {
-    if ( !__sharedInstance ) __sharedInstance = [[TPPreciseTimer alloc] init];
-    [__sharedInstance cancelAction:action target:target];
-}
-+ (void)cancelAction:(SEL)action target:(id)target context:(id)context {
-    if ( !__sharedInstance ) __sharedInstance = [[TPPreciseTimer alloc] init];
-    [__sharedInstance cancelAction:action target:target context:context];
-}
-#if NS_BLOCKS_AVAILABLE
-+ (void)scheduleBlock:(void (^)(void))block inTimeInterval:(NSTimeInterval)timeInterval {
-    if ( !__sharedInstance ) __sharedInstance = [[TPPreciseTimer alloc] init];
++ (void)scheduleBlock:(ae_timer_block_t)block inTimeInterval:(NSTimeInterval)timeInterval {
+    if ( !__sharedInstance ) __sharedInstance = [[AEBlockTimer alloc] init];
     [__sharedInstance scheduleBlock:block inTimeInterval:timeInterval];
 }
-#endif
 
 - (id)init {
     if ( !(self = [super init]) ) return nil;
@@ -69,6 +50,7 @@ void *thread_entry(void* argument);
     mach_timebase_info(&timebase);
     timebase_ratio = ((double)timebase.numer / (double)timebase.denom) * 1.0e-9;
     
+    _eventsCount = 0;
     events = [[NSMutableArray alloc] init];
     condition = [[NSCondition alloc] init];
     
@@ -78,66 +60,31 @@ void *thread_entry(void* argument);
     param.sched_priority = sched_get_priority_max(SCHED_FIFO);
     pthread_attr_setschedparam(&attr, &param);
     pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
-    pthread_create(&thread, &attr, thread_entry, (void*)self);
+    pthread_create(&thread, &attr, thread_entry, (__bridge void*)self);
     
     return self;
 }
 
-- (void)scheduleAction:(SEL)action target:(id)target inTimeInterval:(NSTimeInterval)timeInterval {
-    [self addSchedule:[NSDictionary dictionaryWithObjectsAndKeys:
-                       NSStringFromSelector(action), kSelectorKey,
-                       target, kTargetKey,
-                       [NSNumber numberWithUnsignedLongLong:mach_absolute_time() + (timeInterval / timebase_ratio)], kTimeKey,
+- (void)scheduleBlock:(ae_timer_block_t)block inTimeInterval:(NSTimeInterval)timeInterval {
+    [self addSchedule:[NSMutableArray arrayWithObjects:
+                       [block copy],
+                       [NSNumber numberWithDouble:timeInterval],
+                       [NSNumber numberWithUnsignedLongLong:mach_absolute_time() + (timeInterval / timebase_ratio)],
                        nil]];
 }
 
-- (void)scheduleAction:(SEL)action target:(id)target context:(id)context inTimeInterval:(NSTimeInterval)timeInterval {
-    [self addSchedule:[NSDictionary dictionaryWithObjectsAndKeys:
-                       NSStringFromSelector(action), kSelectorKey,
-                       target, kTargetKey,
-                       [NSNumber numberWithUnsignedLongLong:mach_absolute_time() + (timeInterval / timebase_ratio)], kTimeKey,
-                       context, kArgumentKey,
-                       nil]];
-}
-
-- (void)cancelAction:(SEL)action target:(id)target {
-    [condition lock];
-    NSDictionary *originalNextEvent = [events count] > 0 ? [events objectAtIndex:0] : nil;
-    [events filterUsingPredicate:[NSPredicate predicateWithFormat:@"%K != %@ AND %K != %@", kTargetKey, target, kSelectorKey, NSStringFromSelector(action)]];
-    BOOL mustSignal = originalNextEvent != ([events count] > 0 ? [events objectAtIndex:0] : nil);
-    [condition signal];
-    [condition unlock];
-    if ( mustSignal ) {
-        pthread_kill(thread, SIGALRM); // Interrupt thread if it's performing a mach_wait_until
-    }
-}
-
-- (void)cancelAction:(SEL)action target:(id)target context:(id)context {
-    [condition lock];
-    NSDictionary *originalNextEvent = [events count] > 0 ? [events objectAtIndex:0] : nil;
-    [events filterUsingPredicate:[NSPredicate predicateWithFormat:@"%K != %@ AND %K != %@ AND %K != %@", kTargetKey, target, kSelectorKey, NSStringFromSelector(action), kArgumentKey, context]];
-    BOOL mustSignal = originalNextEvent != ([events count] > 0 ? [events objectAtIndex:0] : nil);
-    [condition signal];
-    [condition unlock];
-    if ( mustSignal ) {
-        pthread_kill(thread, SIGALRM); // Interrupt thread if it's performing a mach_wait_until
-    }
-}
-
-#if NS_BLOCKS_AVAILABLE
-- (void)scheduleBlock:(void (^)(void))block inTimeInterval:(NSTimeInterval)timeInterval {
-    [self addSchedule:[NSDictionary dictionaryWithObjectsAndKeys:
-                       [[block copy] autorelease], kBlockKey,
-                       [NSNumber numberWithUnsignedLongLong:mach_absolute_time() + (timeInterval / timebase_ratio)], kTimeKey,
-                       nil]];
-}
-#endif
-
-- (void)addSchedule:(NSDictionary*)schedule {
+- (void)addSchedule:(NSArray*)schedule {
     [condition lock];
     [events addObject:schedule];
-    [events sortUsingDescriptors:[NSArray arrayWithObject:[NSSortDescriptor sortDescriptorWithKey:kTimeKey ascending:YES]]];
-    BOOL mustSignal = [events count] > 1 && [events objectAtIndex:0] == schedule;
+    _eventsCount = [events count];
+    [events sortUsingComparator:^(id obj1, id obj2) {
+        if([[(NSArray*)obj2 objectAtIndex:kTimeIndex] unsignedLongLongValue] < [[(NSArray*)obj1 objectAtIndex:kTimeIndex] unsignedLongLongValue]) {
+            return NSOrderedDescending;
+        } else {
+            return NSOrderedAscending;
+        }
+    }];
+    BOOL mustSignal = _eventsCount > 1 && [events objectAtIndex:0] == schedule;
     [condition signal];
     [condition unlock];
     if ( mustSignal ) {
@@ -146,7 +93,7 @@ void *thread_entry(void* argument);
 }
 
 void *thread_entry(void* argument) {
-    [(TPPreciseTimer*)argument thread];
+    [(__bridge AEBlockTimer*)argument thread];
     return NULL;
 }
 
@@ -159,53 +106,63 @@ void thread_signal(int signal) {
     [condition lock];
 
     while ( 1 ) {
-        while ( [events count] == 0 ) {
+        while ( _eventsCount == 0 ) {
             [condition wait];
         }
-        NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-        NSDictionary *nextEvent = [[[events objectAtIndex:0] retain] autorelease];
-        NSTimeInterval time = [[nextEvent objectForKey:kTimeKey] unsignedLongLongValue] * timebase_ratio;
-        
-        [condition unlock];
-        
-        mach_wait_until((uint64_t)((time - kSpinLockTime) / timebase_ratio));
-        
-        if ( (double)(mach_absolute_time() * timebase_ratio) >= time-kSpinLockTime ) {
+        @autoreleasepool {
+            NSMutableArray *nextEvent = [events objectAtIndex:0];
+            NSTimeInterval time = [[nextEvent objectAtIndex:kTimeIndex] unsignedLongLongValue] * timebase_ratio;
             
-            // Spin lock until it's time
-            uint64_t end = time / timebase_ratio;
-            while ( mach_absolute_time() < end );
+            [condition unlock];
             
-#ifdef kAnalyzeTiming
-            double discrepancy = (double)(mach_absolute_time()*timebase_ratio) - time;
-            printf("TPPreciseTimer fired: %lfs time discrepancy\n", discrepancy);
-#endif
+            mach_wait_until((uint64_t)((time - kSpinLockTime) / timebase_ratio));
             
-            // Perform action
-#if NS_BLOCKS_AVAILABLE
-            void (^block)(void) = [nextEvent objectForKey:kBlockKey];
-            if ( block ) {
-                block();
+            if ( (double)(mach_absolute_time() * timebase_ratio) >= time-kSpinLockTime ) {
+                
+                // Spin lock until it's time
+                uint64_t end = time / timebase_ratio;
+                while ( mach_absolute_time() < end );
+                
+                // Perform action
+                ae_timer_block_t block = [nextEvent objectAtIndex:kBlockIndex];
+                BOOL shouldRemove = NO;
+                if ( block ) {
+                    if((shouldRemove=block())) {
+                        // finished!
+                    } else {
+                        double timeInterval = [[nextEvent objectAtIndex:kDelayIndex] doubleValue];
+                        unsigned long long nextTime = mach_absolute_time() + (timeInterval / timebase_ratio);
+                        [nextEvent replaceObjectAtIndex:kTimeIndex withObject:[NSNumber numberWithUnsignedLongLong:nextTime]];
+                        if(_eventsCount>1) {
+                            int insertIndex = 0;
+                            for(int i = 1; i<_eventsCount; ++i) {
+                                if([[[events objectAtIndex:i] objectAtIndex:kDelayIndex] unsignedLongLongValue] > nextTime) {
+                                    break; // we've found where it's supposed to be
+                                }
+                                insertIndex++;
+                            }
+                            if(insertIndex>0) {
+                                // we need to re-shuffle
+                                [events removeObjectAtIndex:0];
+                                [events insertObject:nextEvent atIndex:insertIndex];
+                            }
+                        }
+                    }
+                } else {
+                    // no block? remove it
+                    shouldRemove = YES;
+                }
+                
+                [condition lock];
+                if(shouldRemove) {
+                    [events removeObject:nextEvent];
+                    _eventsCount = [events count];
+                }
             } else {
-#endif
-            id target = [nextEvent objectForKey:kTargetKey];
-            SEL selector = NSSelectorFromString([nextEvent objectForKey:kSelectorKey]);
-            if ( [nextEvent objectForKey:kArgumentKey] ) {
-                [target performSelector:selector withObject:[nextEvent objectForKey:kArgumentKey]];
-            } else {
-                [target performSelector:selector];
+                [condition lock];
             }
-#if NS_BLOCKS_AVAILABLE
-            }
-#endif
-            
-            [condition lock];
-            [events removeObject:nextEvent];
-        } else {
-            [condition lock];
-        }
         
-        [pool release];
+        } // END @autoreleasepool
     }
 }
 

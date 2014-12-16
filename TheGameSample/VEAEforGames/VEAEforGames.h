@@ -10,14 +10,28 @@
 #import "TheAmazingAudioEngine.h"
 #import "AUMIDIDefs.h"
 #import "AEAUAudioFilePlayerChannel.h"
+#import "AEGameSoundChannel.h"
+#import "AEBlockTimer.h"
+
 
 
 #pragma mark - Typedefs
 
-typedef AEAudioUnitChannel SamplerChannel; // This channel must have a "AUSampler" as its .audioUnit parameter - this is not strictly enforced in code, but should be adhered to in use (hence the typedef - just to remind us - I recommend in your own code use the SamplerChannel type instead of AEAudioUnitChannel for objects that came from this "for games" library).
+//typedef AEAudioUnitChannel SamplerChannel; // This channel must have a "AUSampler" as its .audioUnit parameter - this is not strictly enforced in code, but should be adhered to in use (hence the typedef - just to remind us - I recommend in your own code use the SamplerChannel type instead of AEAudioUnitChannel for objects that came from this "for games" library).
 
 
 typedef AEAUAudioFilePlayerChannel AmbienceChannel; // This channel must have a "AUAudioFilePlayer" as its .audioUnit parameter - same idea as the "SamplerChannel" typedef
+
+
+@protocol HasAnAudioUnitProperty <NSObject>
+@required
+@property AudioUnit audioUnit;
+@end
+@interface AEAudioUnitFilter() <HasAnAudioUnitProperty> @end
+@interface AEAudioUnitChannel() <HasAnAudioUnitProperty> @end
+@interface AEAUAudioFilePlayerChannel() <HasAnAudioUnitProperty> @end
+@interface AEGameSoundChannel() <HasAnAudioUnitProperty> @end
+@interface AEAudioController() <HasAnAudioUnitProperty> @end
 
 
 #pragma mark - *** THE GLOBAL AUDIO UTILITY FUNCTIONS ***
@@ -31,8 +45,11 @@ void audPrintAudioUnitParametersInScope(AudioUnit audioUnit, int audioUnitScope)
 void audPrintAudioUnitParameters(AudioUnit audioUnit); // <-- kAudioUnitScope_Global
 
 
+/** Get the AudioComponentDescription from an AudioUnit instance */
+AudioComponentDescription audGetComponentDescription(AudioUnit audioUnit);
+
 /** Attempts to create and return an AEAudioUnitChannel that has a sampler AudioUnit loaded with the supplied URL. */
-SamplerChannel* audGetAUSamplerChannel(AEAudioController *audCtrlr, NSURL *audioFileUrl, BOOL isLooping, int cents);
+AEGameSoundChannel* audGetAUSamplerChannel(AEAudioController *audCtrlr, NSURL *audioFileUrl, BOOL isLooping, int cents);
 
 
 /** Send a MIDI control change event (e.g. gain is CC#7 and pan is CC#10). */
@@ -66,13 +83,35 @@ AEAudioController* audInit( AEAudioController *audioControllerOrNil );
 AEAudioController* audController();
 
 
-SamplerChannel* audLoadEffect(NSString *fullPathToFile, float pitch, float pan, BOOL isLooping);
+AEGameSoundChannel* audLoadEffect(NSString *fullPathToFile, float pitch, float pan, BOOL isLooping);
 
 
-void audPlayEffect(SamplerChannel *samplerChannel, float volume);
+void audPlayEffect(AEGameSoundChannel *samplerChannel, float volume);
+
+
+/** Fade in/out the volume between the range of 0.0 and 1.0 */
+void audRampEffectVolume(AEGameSoundChannel *samplerChannel, float fromVolume, float toVolume, float duration);
+
+
+/** Ramp the pitch up/down between the range of 0.0 (down two octaves) and 2.0 (up two octaves), where 1.0 == at pitch */
+void audRampEffectPitch(AEGameSoundChannel *samplerChannel, float fromPitch, float toPitch, float duration);
+
+
+/** Pan the audio from one side to the other (stereo) between the range of -1.0 (fully left) to 1.0 (fully right). */
+void audRampEffectPan(AEGameSoundChannel *samplerChannel, float fromPan, float toPan, float duration);
 
 
 AmbienceChannel* audLoadAmbience(NSString *fullPathToFile, float pitch, float pan, float fadeInDuration);
+
+
+void audModulate(id<HasAnAudioUnitProperty> channel,
+                 AudioUnitParameterID		inID,
+                 AudioUnitScope				inScope,
+                 AudioUnitElement			inElement,
+                 AudioUnitParameterValue	startValue,
+                 AudioUnitParameterValue	endValue,
+                 UInt32						inBufferOffsetInFrames,
+                 Float32                    duration);
 
 
 

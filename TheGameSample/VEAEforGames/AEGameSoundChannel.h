@@ -1,5 +1,5 @@
 //
-//  AEAUSamplerChannel.h
+//  AEGameSoundChannel.h
 //  TheAmazingAudioEngine
 //
 //  This file is based on "AEAudioUnitChannel.h" which was created by Michael
@@ -29,119 +29,106 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+    
 #import <Foundation/Foundation.h>
 #import "TheAmazingAudioEngine.h"
-
+#import "AEAUSamplerChannel.h"
+#import <mach/mach_time.h> // for our timing/param modulation functions
+    
 /*!
  * Audio Unit Channel
  *
  *  This class allows you to add the AUSampler audio unit as a channel.
- *  Provide a URL that points to the audio file you wish to use as a sample, 
+ *  Provide a URL that points to the audio file you wish to use as a sample,
  *  and the sampler audio unit will be initialised, ready for use.
  *
  */
-@interface AEAUSamplerChannel : NSObject <AEAudioPlayable>
+@interface AEGameSoundChannel : AEAUSamplerChannel <AEAudioTimingReceiver>
 
 /*!
  * Create a new Audio Unit channel
  *
- * @param aupresetFileURL An URL to the local .aupreset resource you wish to load.
+ * @param fileURL An URL pointing to the local file resource you wish to load.
  * @param audioController The audio controller
  * @param error On output, if not NULL, will point to an error if a problem occurred
+ * @param shouldLoop Whether to loop the sample or not.
+ * @param cents - the "tuning" in the range of +/- 2400 cents (100cents = 1 semitone) that this sample
+ *              should be initialized at
  * @return The initialised channel
  */
-- (id)initWithFileURL:(NSURL*)aupresetFileURL
+- (id)initWithFileURL:(NSURL*)fileURL
       audioController:(AEAudioController*)audioController
+           shouldLoop:(BOOL)shouldLoop
+                cents:(int)cents
                 error:(NSError**)error;
 
 /*!
  * Create a new Audio Unit channel
  *
- * @param aupresetFileURL An URL to the local .aupreset resource you wish to load.
+ * @param fileURL An URL pointing to the local file resource you wish to load.
  * @param audioController The audio controller
  * @param preInitializeBlock A block to run before the audio unit is initialized.  Can be NULL.
  *              This can be used to set some properties that needs to be set before the unit is initialized.
+ * @param shouldLoop Whether to loop the sample or not.
+ * @param cents - the "tuning" in the range of +/- 2400 cents (100cents = 1 semitone) that this sample 
+ *              should be initialized at
  * @param error On output, if not NULL, will point to an error if a problem occurred
  * @return The initialised channel
  */
-- (id)initWithFileURL:(NSURL*)aupresetFileURL
+- (id)initWithFileURL:(NSURL*)fileURL
       audioController:(AEAudioController*)audioController
    preInitializeBlock:(void(^)(AudioUnit audioUnit))block
+           shouldLoop:(BOOL)shouldLoop
+                cents:(int)cents
                 error:(NSError**)error;
 
-/*!
- * Create a new Audio Unit channel
- *
- * @param aupresetDictionary A dicationary, typically loaded from a .aupreset file (but loading it yourself
- *              enables you to modify it programmatically before it is loaded into the Audio Unit)
- * @param audioController The audio controller
- * @param preInitializeBlock A block to run before the audio unit is initialized.  Can be NULL.
- *              This can be used to set some properties that needs to be set before the unit is initialized.
- * @param error On output, if not NULL, will point to an error if a problem occurred
- * @return The initialised channel
- */
-- (id)initWithDictionary:(NSDictionary*)aupresetDictionary
-         audioController:(AEAudioController*)audioController
-      preInitializeBlock:(void(^)(AudioUnit audioUnit))block
-                   error:(NSError**)error;
 
 /*!
- * Wether the last render cycle output silence or not.  This can be useful if you wish 
- * stop the sound - if it has no audio, just stop it, or optionally fade out first.
+ * Original audio file URL
  */
-@property (nonatomic, readonly) BOOL outputIsSilence;
+@property (nonatomic, strong, readonly) NSURL *url;
 
 /*!
- * Whether to loop this track
+ * Whether the sample loops
  */
 @property (nonatomic, readonly) BOOL loop;
 
 /*!
- * Track volume
+ * AudioUnit volume. Setting this value will stop any modulation.
  *
  * Range: 0.0 to 1.0
  */
-@property (nonatomic, assign) float volume;
+@property (nonatomic, readwrite) float auVolume;
 
 /*!
- * Track pan
+ * AudioUnit pan. Setting this value will stop any modulation.
  *
  * Range: -1.0 (left) to 1.0 (right)
  */
-@property (nonatomic, assign) float pan;
-
-/*
- * Whether channel is currently playing
- *
- * If this is NO, then the track will be silenced and no further render callbacks
- * will be performed until set to YES again.
- */
-@property (nonatomic, assign) BOOL channelIsPlaying;
-
-/*
- * Whether channel is muted
- *
- * If YES, track will be silenced, but render callbacks will continue to be performed.
- */
-@property (nonatomic, assign) BOOL channelIsMuted;
+@property (nonatomic, readwrite) float auPan;
 
 /*!
- * The AUSampler audio unit
+ * AudioUnit pitch - this is the state of the "pitch bend" (not the au "tuning"). 
+ * Setting this value will stop any modulation.
+ *
+ * Range: 0.0 (two octaves lower) to 2.0 (two octaves higher)
+ *        e.g. 0.5 is one octave lower and 1.5 is one octave higher
  */
-@property (nonatomic, readonly) AudioUnit audioUnit;
+@property (nonatomic, readwrite) float auPitchBend;
 
 /*!
- * The audio graph node
+ * Modulate the AudioUnit pan to the new setting; note that this is not the
+ * same as the channel or track pan, rather this is a direct modulation
+ * of the AUSampler audio unit pan parameter.  To stop modulation, set the
+ * auPan property on this object.  This channel must be playing before this
+ * is called.
  */
-@property (nonatomic, readonly) AUNode audioGraphNode;
-
-
-- (void)noteOn:(unsigned short)midiNoteNumber velocity:(unsigned short)velocity;
-- (void)noteOff:(unsigned short)midiNoteNumber velocity:(unsigned short)velocity;
+- (void)auPanTo:(float)auPanTo duration:(float)duration;
+- (void)auPitchBendTo:(float)auPitchBendTo duration:(float)duration;
+- (void)auVolumeTo:(float)auVolumeTo duration:(float)duration;
 
 @end
-
+    
 #ifdef __cplusplus
 }
 #endif

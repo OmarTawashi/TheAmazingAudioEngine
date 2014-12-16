@@ -1,5 +1,5 @@
 //
-//  AEAUAudioFilePlayerChannel.m
+//  AEAUSamplerChannel.m
 //  TheAmazingAudioEngine
 //
 //  This file is based on "AEAudioUnitChannel.m" which was created by Michael
@@ -26,7 +26,7 @@
 //  3. This notice may not be removed or altered from any source distribution.
 //
 
-#import "AEAUAudioFilePlayerChannel.h"
+#import "AEAUSamplerChannel.h"
 
 #define checkResult(result,operation) (_checkResult((result),(operation),strrchr(__FILE__, '/')+1,__LINE__))
 static inline BOOL _checkResult(OSStatus result, const char *operation, const char* file, int line) {
@@ -38,58 +38,38 @@ static inline BOOL _checkResult(OSStatus result, const char *operation, const ch
     return YES;
 }
 
-@interface AEAUAudioFilePlayerChannel () {
-    AEAudioController *_audioController;
-    AudioComponentDescription _componentDescription;
-    AUNode _node;
-    AudioUnit _audioUnit;
-//    AUNode _converterNode;    // We use the AUAudioFilePlayer units built in conversion capability instead
-//    AudioUnit _converterUnit;
-    AUGraph _audioGraph;
-    AudioFileID _fileId;
-    UInt32 _mFramesToPlay;
-    UInt32 _numLoopsCompleted;
-    NSTimeInterval _currentTime;
-    Float64 _outSampleRate;
-    BOOL _outputIsSilence;
-}
-@end
+@implementation AEAUSamplerChannel
 
-@implementation AEAUAudioFilePlayerChannel
-
-@synthesize url=_fileURL;
-@synthesize currentTime=_currentTime;
-@synthesize duration=_duration;
-@synthesize loop=_loop;
-@synthesize completionBlock  = _completionBlock;
-@synthesize startLoopBlock   = _startLoopBlock;
-@synthesize removeUponFinish = _removeUponFinish;
+@synthesize aupreset = _aupreset;
 @synthesize outputIsSilence = _outputIsSilence;
 
-- (id)initWithFileURL:(NSURL*)fileURL
+- (id)initWithFileURL:(NSURL*)aupresetFileURL
       audioController:(AEAudioController*)audioController
-           shouldLoop:(BOOL)shouldLoop
                 error:(NSError**)error {
-    return [self initWithFileURL:fileURL audioController:audioController preInitializeBlock:NULL shouldLoop:shouldLoop error:error];
+    return [self initWithFileURL:aupresetFileURL audioController:audioController preInitializeBlock:NULL error:error];
 }
 
-- (id)initWithFileURL:(NSURL*)fileURL
+- (id)initWithFileURL:(NSURL*)aupresetFileURL
       audioController:(AEAudioController*)audioController
    preInitializeBlock:(void(^)(AudioUnit audioUnit))block
-           shouldLoop:(BOOL)shouldLoop
                 error:(NSError**)error {
+    return [self initWithDictionary:[NSMutableDictionary dictionaryWithContentsOfURL:aupresetFileURL] audioController:audioController preInitializeBlock:block error:error];
+}
+
+- (id)initWithDictionary:(NSDictionary*)aupresetDictionary
+         audioController:(AEAudioController*)audioController
+      preInitializeBlock:(void(^)(AudioUnit audioUnit))block
+                   error:(NSError**)error {
     
-    if(!(fileURL)) return nil;
+    if(!(aupresetDictionary)) return nil;
     
     if ( !(self = [super init]) ) return nil;
     
     // Create the node, and the audio unit
+    _aupreset = aupresetDictionary;
     _audioController = audioController;
-    _componentDescription = AEAudioComponentDescriptionMake(kAudioUnitManufacturer_Apple, kAudioUnitType_Generator, kAudioUnitSubType_AudioFilePlayer);
+    _componentDescription = AEAudioComponentDescriptionMake(kAudioUnitManufacturer_Apple, kAudioUnitType_MusicDevice, kAudioUnitSubType_Sampler);
     _audioGraph = _audioController.audioGraph;
-    _fileURL = fileURL;
-    _loop = shouldLoop;
-    _numLoopsCompleted = 0;
     _outputIsSilence = YES;
     
     if ( ![self setup:block error:error] ) {
@@ -107,7 +87,13 @@ static inline BOOL _checkResult(OSStatus result, const char *operation, const ch
 }
 
 - (BOOL)setup:(void(^)(AudioUnit audioUnit))block error:(NSError**)error {
-	OSStatus result;
+    
+    if( !(_aupreset) ) {
+        if ( error ) *error = [NSError errorWithDomain:@"nil for required object" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"Couldn't initialise audio unit: missing the aupreset"}];
+        return NO;
+    }
+    
+    OSStatus result;
     if ( !checkResult(result=AUGraphAddNode(_audioGraph, &_componentDescription, &_node), "AUGraphAddNode") ||
          !checkResult(result=AUGraphNodeInfo(_audioGraph, _node, NULL, &_audioUnit), "AUGraphNodeInfo") ) {
         if ( error ) *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:result userInfo:@{NSLocalizedDescriptionKey: @"Couldn't initialise audio unit"}];
@@ -122,104 +108,22 @@ static inline BOOL _checkResult(OSStatus result, const char *operation, const ch
     result = AudioUnitSetProperty(_audioUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 0, &outASBD, sizeof(AudioStreamBasicDescription));
     
     checkResult(AUGraphUpdate(_audioGraph, NULL), "AUGraphUpdate");
-
+    
+    // Convert the data object into a property list
+    CFPropertyListRef presetPropertyList = (__bridge CFPropertyListRef)(_aupreset);
+    
+    // Set the class info property for the Sampler unit using the property list as the value.
+    checkResult(AudioUnitSetProperty(_audioUnit,
+                                     kAudioUnitProperty_ClassInfo,
+                                     kAudioUnitScope_Global,
+                                     0,
+                                     &presetPropertyList,
+                                     sizeof(CFPropertyListRef)
+                                     ),"AudioUnitSetProperty(kAudioUnitProperty_ClassInfo) failed (setting the .aupreset on an AUSampler instance failed)");
+    
     if(block) block(_audioUnit);
 
     checkResult(AudioUnitInitialize(_audioUnit), "AudioUnitInitialize");
-    
-    // Open the input audio file
-    _fileId = NULL;
-    checkResult(AudioFileOpenURL((__bridge CFURLRef)_fileURL,
-                                 kAudioFileReadPermission,
-                                 0,
-                                 &_fileId),
-                "AudioFileOpenURL[kAudioFileReadPermission] failed");
-    
-    // Get the audio data format from the file
-    AudioStreamBasicDescription fileASBD;
-    UInt32 propSize = sizeof(fileASBD);
-    checkResult(AudioFileGetProperty(_fileId,
-                                     kAudioFilePropertyDataFormat,
-                                     &propSize,
-                                     &fileASBD),
-                "AudioFileGetProperty[kAudioFilePropertyDataFormat] failed");
-    
-    // Get number of packets in the audio file
-    UInt64 nPackets;
-    UInt32 propsize = sizeof(nPackets);
-    checkResult(AudioFileGetProperty(_fileId,
-                                     kAudioFilePropertyAudioDataPacketCount,
-                                     &propsize,
-                                     &nPackets),
-                "AudioFileGetProperty[kAudioFilePropertyAudioDataPacketCount] failed");
-    
-    // Provide a list of AudioFileIDs to play by setting the unit’s kAudioUnitProperty_ScheduledFileIDs property.
-    // This probably *adds to* rather than "sets" the property
-    checkResult(AudioUnitSetProperty(_audioUnit,
-                                     kAudioUnitProperty_ScheduledFileIDs,
-                                     kAudioUnitScope_Global,
-                                     0,
-                                     &_fileId,
-                                     sizeof(_fileId)),
-                "AudioUnitSetProperty[kAudioUnitProperty_ScheduledFileIDs] failed");
-    
-    // Tell the file player AU to play the entire file
-    // This probably *adds to* rather than "sets" the property, see http://lists.apple.com/archives/coreaudio-api/2012/Jun/msg00022.html
-    ScheduledAudioFileRegion rgn;
-    memset (&rgn.mTimeStamp, 0, sizeof(rgn.mTimeStamp));
-    rgn.mTimeStamp.mFlags = kAudioTimeStampSampleTimeValid;
-    rgn.mTimeStamp.mSampleTime = 0;
-    rgn.mCompletionProc = NULL;
-    rgn.mCompletionProcUserData = NULL;
-    rgn.mAudioFile = _fileId;
-    rgn.mLoopCount = _loop ? UINT32_MAX : 0;
-    rgn.mStartFrame = 0;
-    rgn.mFramesToPlay = (UInt32)(nPackets * fileASBD.mFramesPerPacket);
-    _mFramesToPlay = rgn.mFramesToPlay * (outASBD.mSampleRate / fileASBD.mSampleRate); // BUGS? This is used for detecting if callback blocks need to be triggered from inside the render function - someone please check my math here
-    checkResult(AudioUnitSetProperty(_audioUnit,
-                                     kAudioUnitProperty_ScheduledFileRegion,
-                                     kAudioUnitScope_Global,
-                                     0,
-                                     &rgn,
-                                     sizeof(rgn)),
-                "AudioUnitSetProperty[kAudioUnitProperty_ScheduledFileRegion] failed");
-    
-    // Prime the player by setting the kAudioUnitProperty_ScheduledFilePrime property.
-    UInt32 primeFrames = 0;	// use default
-    checkResult(AudioUnitSetProperty(_audioUnit,
-                                     kAudioUnitProperty_ScheduledFilePrime,
-                                     kAudioUnitScope_Global,
-                                     0,
-                                     &primeFrames,
-                                     sizeof(primeFrames)),
-                "AudioUnitSetProperty[kAudioUnitProperty_ScheduledFilePrime] failed");
-    
-    // Provide a start time with the kAudioUnitProperty_ScheduleStartTimeStamp property.
-    // Tell the file player AU when to start playing (-1 sample time // means next render cycle)
-    AudioTimeStamp startTime;
-    memset (&startTime, 0, sizeof(startTime));
-    startTime.mFlags = kAudioTimeStampSampleTimeValid;
-    startTime.mSampleTime = -1;
-    checkResult(AudioUnitSetProperty(_audioUnit,
-                                     kAudioUnitProperty_ScheduleStartTimeStamp,
-                                     kAudioUnitScope_Global,
-                                     0,
-                                     &startTime,
-                                     sizeof(startTime)),
-                "AudioUnitSetProperty[kAudioUnitProperty_ScheduleStartTimeStamp]");
-    
-    
-    // Calculating file playback duration in seconds
-//    _lengthInSeconds = (nPackets * outASBD.mFramesPerPacket) / outASBD.mSampleRate;
-    // ... must calculate differently for compressed files, as per: http://forum.theamazingaudioengine.com/discussion/comment/388/#Comment_388
-    AudioFilePacketTableInfo pktinfo;
-    propsize = sizeof(pktinfo);
-    if(AudioFileGetProperty(_fileId, kAudioFilePropertyPacketTableInfo, &propsize, &pktinfo) != noErr) {
-        propsize = 0;
-    }
-    double audioSampleFramesCount = (propsize) ? pktinfo.mNumberValidFrames : (nPackets * fileASBD.mFramesPerPacket);
-    _outSampleRate = outASBD.mSampleRate;
-    _duration = audioSampleFramesCount / _outSampleRate;
 
     return YES;
 }
@@ -232,8 +136,6 @@ static inline BOOL _checkResult(OSStatus result, const char *operation, const ch
     }
 
     checkResult(AUGraphUpdate(_audioGraph, NULL), "AUGraphUpdate");
-    
-    checkResult(AudioFileClose(_fileId), "AudioFileClose");
 }
 
 -(AudioUnit)audioUnit {
@@ -244,31 +146,7 @@ static inline BOOL _checkResult(OSStatus result, const char *operation, const ch
     return _node;
 }
 
-static void notifyPlaybackStopped(AEAudioController *audioController, void *userInfo, int length) {
-    AEAUAudioFilePlayerChannel *THIS = (__bridge AEAUAudioFilePlayerChannel*)*(void**)userInfo;
-    THIS->_channelIsPlaying = NO;
-    THIS->_outputIsSilence = YES;
-    
-    if ( THIS->_removeUponFinish ) {
-        [audioController removeChannels:@[THIS]];
-    }
-    
-    if ( THIS->_completionBlock ) {
-        THIS->_completionBlock();
-        THIS->_completionBlock = NULL;
-    }
-}
-
-static void notifyStartLoopBlock(AEAudioController *audioController, void *userInfo, int length) {
-    AEAUAudioFilePlayerChannel *THIS = (__bridge AEAUAudioFilePlayerChannel*)*(void**)userInfo;
-    THIS->_channelIsPlaying = YES;
-    
-    if ( THIS->_startLoopBlock ) {
-        THIS->_startLoopBlock();
-    }
-}
-
-static OSStatus renderCallback(__unsafe_unretained AEAUAudioFilePlayerChannel *THIS,
+static OSStatus renderCallback(__unsafe_unretained AEAUSamplerChannel *THIS,
                                __unsafe_unretained AEAudioController *audioController,
                                const AudioTimeStamp     *time,
                                UInt32                    frames,
@@ -276,49 +154,16 @@ static OSStatus renderCallback(__unsafe_unretained AEAUAudioFilePlayerChannel *T
     
     AudioUnitRenderActionFlags flags = 0;
     checkResult(AudioUnitRender(THIS->_audioUnit, &flags, time, 0, frames, audio), "AudioUnitRender");
-    
-    // Update outputIsSilence status
     THIS->_outputIsSilence = (flags & kAudioUnitRenderAction_OutputIsSilence);
-    
-    // Get our current time data
-    AudioTimeStamp ts;
-    UInt32 size = sizeof(ts);
-    AudioUnitGetProperty(THIS->_audioUnit, kAudioUnitProperty_CurrentPlayTime, kAudioUnitScope_Global, 0, &ts, &size);
-    
-    // Check for callbacks to be done
-    if(THIS->_loop) {
-        
-        // Looping callback
-        UInt32 currentNumLoops = floor(ts.mSampleTime / THIS->_mFramesToPlay);
-        
-        // Update current time relative to the start of the file (instead of overall playback time)
-        THIS->_currentTime = (ts.mSampleTime - ((float)currentNumLoops * THIS->_mFramesToPlay)) / THIS->_outSampleRate;
-        
-        // If we are on a new loop number, trigger the startLoop callback
-        if(currentNumLoops > THIS->_numLoopsCompleted) {
-            THIS->_numLoopsCompleted++;
-            AEAudioControllerSendAsynchronousMessageToMainThread(audioController, notifyStartLoopBlock, &THIS, sizeof(AEAUAudioFilePlayerChannel*));
-        }
-    } else {
-        
-        // Update current time
-        THIS->_currentTime = ts.mSampleTime / THIS->_outSampleRate;
-        
-        // If we're in the last renderCallback, trigger the completion callback
-        UInt32 remainderPlusFramesThisRender = ((UInt32)ts.mSampleTime % THIS->_mFramesToPlay) + frames;
-        if(remainderPlusFramesThisRender >= THIS->_mFramesToPlay) {
-            AEAudioControllerSendAsynchronousMessageToMainThread(audioController, notifyPlaybackStopped, &THIS, sizeof(AEAUAudioFilePlayerChannel*));
-        }
-    }
-    
     return noErr;
 }
 
--(AEAudioControllerRenderCallback)renderCallback {
+- (AEAudioControllerRenderCallback)renderCallback {
     return renderCallback;
 }
 
 - (void)didRecreateGraph:(NSNotification*)notification {
+    _outputIsSilence = YES;
     _node = 0;
     _audioUnit = NULL;
     _audioGraph = _audioController.audioGraph;

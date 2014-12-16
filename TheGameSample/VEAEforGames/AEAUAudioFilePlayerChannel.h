@@ -91,6 +91,11 @@ extern "C" {
 @property (nonatomic, readonly) NSTimeInterval currentTime; // TODO: some guru to make this "assign"-able, see See: http://lists.apple.com/archives/coreaudio-api/2005/Dec/msg00010.html
 
 /*!
+ * Wether the last render cycle output silence or not.
+ */
+@property (nonatomic, readonly) BOOL outputIsSilence;
+
+/*!
  * Whether to loop this track
  */
 @property (nonatomic, readwrite) BOOL loop;
@@ -125,7 +130,7 @@ extern "C" {
 @property (nonatomic, assign) BOOL channelIsMuted;
 
 /*!
- * The audio unit
+ * The AUAudioFilePlayer audio unit
  */
 @property (nonatomic, readonly) AudioUnit audioUnit;
 

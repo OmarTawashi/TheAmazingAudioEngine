@@ -25,18 +25,8 @@ class GameScene: SKScene {
     var _audCtrlr : AEAudioController = audInit(nil)
 //    var _bgMusic  : AEAudioUnitFilePlayer! // looping doesn't work
     var _bgMusic  : AEAudioFilePlayer! // takes more memory... keep your background sound files short, and perhaps use lower bitrate (e.g. 22050)
-//    var _snd1     : AEAudioFilePlayer!
-//    var _snd2     : AEAudioFilePlayer!
     
-//    var _snd1PanIncr : Float = 0.066
-//    var _snd2PanIncr : Float = -0.033
-    
-    var _samplerChannel : SamplerChannel!
-    var _samplerVolume = Float(1.0)
-    var _samplerPitch  = Float(0.0)
-    var _samplerPitchIncr = Float(0.1)
-    var _samplerPan    = Float(1.0)
-    var _samplerPanIncr = Float(-0.05)
+    var _samplerChannel : AEGameSoundChannel!
     
     var btnBgSnd, btnEffects : SKLabelNode!
     
@@ -62,10 +52,10 @@ class GameScene: SKScene {
         addChild(btnEffects)
         
         // Preload audio
-        _samplerChannel = audLoadEffect(NSBundle.mainBundle().pathForResource("effect1", ofType: "caf"), 1.0, 0.0, false)
+        _samplerChannel = audLoadEffect(NSBundle.mainBundle().pathForResource("effect1", ofType: "caf"), 1.0, -1.0, false)
         
         // TEST
-        audLoadAmbience(NSBundle.mainBundle().pathForResource("HiQualityMix96.7", ofType: "wav"), 1.0, 0.0, 0)
+//        let ambience = audLoadAmbience(NSBundle.mainBundle().pathForResource("HiQualityMix96.7", ofType: "wav"), 1.0, 0.0, 0)
         
         // on iOS let's let the user know to use headphones to be able to hear the panning effects
 //        #if os(iOS)
@@ -77,49 +67,9 @@ class GameScene: SKScene {
     }
     
     
-    override func update(currentTime: CFTimeInterval) {
-        /* Called before each frame is rendered */
-        
-//        if _samplerVolume > 0.0 && _samplerChannel != nil {
-//            
-//            // Volume
-//            _samplerVolume -= 0.01
-//            audMidiControlChange(_samplerChannel.audioUnit, 7, max(0,Int32(127 * _samplerVolume)))
-//            
-//            // Pan
-//            _samplerPan = max(0.0,min(1.0, _samplerPan + _samplerPanIncr))
-//            if _samplerPan <= 0 || _samplerPan >= 1.0 {
-//                _samplerPanIncr *= -1.0
-//            }
-//            audMidiControlChange(_samplerChannel.audioUnit, 10, max(0,Int32(127 * _samplerPan)))
-//            
-//            // Pitch
-//            _samplerPitch = max(0.0,min(1.0, _samplerPitch + _samplerPitchIncr))
-//            if _samplerPitch <= 0.0 || _samplerPitch >= 1.0 {
-//                _samplerPitchIncr *= -1.0
-//            }
-//            audMidiPitchBend(_samplerChannel.audioUnit, max(1, Int16(126 * _samplerPitch)))
-//            
-//            
-//            if _samplerVolume <= 0 {
-//                // Hacked reset for TESTING
-//                let chnl = _samplerChannel
-//                _samplerChannel = nil
-//                _samplerVolume = 1.0
-//                runAction(SKAction.sequence([SKAction.waitForDuration(0.1),SKAction.runBlock({self._audCtrlr.removeChannels([chnl])})]))
-//            }
-//        }
-        
-        
-        // Just playing around a bit: this tests out panning the effects independently of each other (useful for game sound effects)
-//        if _snd1 != nil {
-//            _snd1.pan += _snd1PanIncr
-//            if _snd1.pan > 0.99 || _snd1.pan < -0.99 { _snd1PanIncr *= -1.0 }
-//            
-//            _snd2.pan += _snd2PanIncr
-//            if _snd2.pan > 0.99 || _snd2.pan < -0.99 { _snd2PanIncr *= -1.0 }
-//        }
-    }
+//    override func update(currentTime: CFTimeInterval) {
+//        /* Called before each frame is rendered */
+//    }
     
     
     func _doBtnBoing(btn : SKLabelNode) {
@@ -165,18 +115,52 @@ class GameScene: SKScene {
 //                runAction(SKAction.runBlock(_doStartBgMusic))
                 runAction(SKAction.runBlock({
                     self._samplerChannel = nil
-                    self._samplerVolume = 1.0
-                    self._samplerPitch = 0.0
                     self._audCtrlr.removeChannels(self._audCtrlr.channels())
+                    self._samplerChannel = audLoadEffect(NSBundle.mainBundle().pathForResource("effect1", ofType: "caf"), 1.0, -1.0, false)
                 }))
             }
         } else if btnEffects.containsPoint(p) {
 //            if btnEffects.yScale > 0.99 && btnEffects.yScale < 1.01 { // prevents fast repeated taps
                 _doBtnBoing(btnEffects)
-//                let filename = "effect1"//randomFloat() > 0.5 ? "effect1" : "effect2"
-//                _samplerChannel = audPlay(NSBundle.mainBundle().pathForResource(filename, ofType: "caf"))
-                runAction(SKAction.runBlock({ audPlayEffect(self._samplerChannel, 1.0) }))
-                
+                runAction(SKAction.runBlock({
+                    
+                    // Play it!
+                    audPlayEffect(self._samplerChannel, 1.0)
+                    
+                    // Modulate the pan - left to right
+//                    audRampEffectPan(self._samplerChannel, -1.0, 1.0, 1.0)
+                    if(self._samplerChannel.auPan > -0.9) {
+                        self._samplerChannel.auPanTo(-1.0, duration:0.25);
+                        self.runAction(SKAction.sequence([SKAction.waitForDuration(0.25),SKAction.runBlock({
+                            self._samplerChannel.auPanTo(1.0, duration:0.75);
+                        })]))
+                    } else {
+                        self._samplerChannel.auPanTo(1.0, duration:1.0);
+                    }
+                    
+                    // Modulate the volume - silent to full volume
+//                    audRampEffectVolume(self._samplerChannel, 0.0, 1.0, 1.5)
+                    self._samplerChannel.auVolume = 0;
+                    self._samplerChannel.auVolumeTo(1.0, duration:1.5)
+                    
+                    // modulate the pitch -1octaves to at-pitch
+//                    audRampEffectPitch(self._samplerChannel, 0.9, 1.05, 1.0)
+                    self._samplerChannel.auPitchBendTo(1.1, duration:1.0)
+                    
+                    
+                    
+                    // After 1 second pan back to center
+                    self.runAction(SKAction.sequence([SKAction.waitForDuration(1.0), SKAction.runBlock({
+                        // ... Modulate the pitch back to "on pitch"
+//                        audRampEffectPitch(self._samplerChannel, 1.05, 1.00, 0.25)
+                        self._samplerChannel.auPitchBendTo(1.0, duration:0.25)
+                        
+                        // ... Modulate the pan - from right back to center
+//                        audRampEffectPan(self._samplerChannel, 1.0, -0.2, 2.0)
+                        self._samplerChannel.auPanTo(-0.2, duration:2.0);
+                        
+                    })]))
+                }))
                 // The let a= works around Swift bug with a C func that returns something.
 //                runAction(SKAction.runBlock({ let a=audPlay(NSBundle.mainBundle().pathForResource(filename, ofType: "caf"))?; }))
 //            }

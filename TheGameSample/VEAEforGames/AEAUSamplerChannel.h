@@ -1,5 +1,5 @@
 //
-//  AEAUAudioFilePlayerChannel.h
+//  AEAUSamplerChannel.h
 //  TheAmazingAudioEngine
 //
 //  This file is based on "AEAudioUnitChannel.h" which was created by Michael
@@ -36,69 +36,76 @@ extern "C" {
 /*!
  * Audio Unit Channel
  *
- *  This class allows you to add the AUAudioFilePlayer audio unit as a channel. 
- *  Provide a URL that points to the audio file you wish to play, and the
- *  corresponding audio player unit will be initialised, ready for use.
+ *  This class allows you to add the AUSampler audio unit as a channel.
+ *  Provide a URL that points to the audio file you wish to use as a sample, 
+ *  and the sampler audio unit will be initialised, ready for use.
  *
  */
-@interface AEAUAudioFilePlayerChannel : NSObject <AEAudioPlayable>
+@interface AEAUSamplerChannel : NSObject <AEAudioPlayable> {
+    AEAudioController *_audioController;
+    AudioComponentDescription _componentDescription;
+    AUNode _node;
+    AudioUnit _audioUnit; // moved to .h file so we can directly access this in subclasses for performance
+//    AUNode _converterNode;    // We use the AUAudioFilePlayer units built in conversion capability instead
+//    AudioUnit _converterUnit;
+    AUGraph _audioGraph;
+    BOOL _outputIsSilence;
+    NSDictionary *_aupreset;
+}
 
 /*!
  * Create a new Audio Unit channel
  *
- * @param fileURL An URL pointing to the local file resource you wish to load.
+ * @param aupresetFileURL An URL to the local .aupreset resource you wish to load.
  * @param audioController The audio controller
  * @param error On output, if not NULL, will point to an error if a problem occurred
- * @param shouldLoop Whether to loop the audio file or not.
  * @return The initialised channel
  */
-- (id)initWithFileURL:(NSURL*)fileURL
+- (id)initWithFileURL:(NSURL*)aupresetFileURL
       audioController:(AEAudioController*)audioController
-           shouldLoop:(BOOL)shouldLoop
                 error:(NSError**)error;
 
 /*!
  * Create a new Audio Unit channel
  *
- * @param fileURL An URL pointing to the local file resource you wish to load.
+ * @param aupresetFileURL An URL to the local .aupreset resource you wish to load.
  * @param audioController The audio controller
  * @param preInitializeBlock A block to run before the audio unit is initialized.  Can be NULL.
  *              This can be used to set some properties that needs to be set before the unit is initialized.
- * @param shouldLoop Whether to loop the audio file or not.
  * @param error On output, if not NULL, will point to an error if a problem occurred
  * @return The initialised channel
  */
-- (id)initWithFileURL:(NSURL*)fileURL
+- (id)initWithFileURL:(NSURL*)aupresetFileURL
       audioController:(AEAudioController*)audioController
    preInitializeBlock:(void(^)(AudioUnit audioUnit))block
-           shouldLoop:(BOOL)shouldLoop
                 error:(NSError**)error;
 
-
-/*! 
- * Original media URL
+/*!
+ * Create a new Audio Unit channel
+ *
+ * @param aupresetDictionary A dicationary, typically loaded from a .aupreset file (but loading it yourself
+ *              enables you to modify it programmatically before it is loaded into the Audio Unit)
+ * @param audioController The audio controller
+ * @param preInitializeBlock A block to run before the audio unit is initialized.  Can be NULL.
+ *              This can be used to set some properties that needs to be set before the unit is initialized.
+ * @param error On output, if not NULL, will point to an error if a problem occurred
+ * @return The initialised channel
  */
-@property (nonatomic, strong, readonly) NSURL *url;
+- (id)initWithDictionary:(NSDictionary*)aupresetDictionary
+         audioController:(AEAudioController*)audioController
+      preInitializeBlock:(void(^)(AudioUnit audioUnit))block
+                   error:(NSError**)error;
 
 /*!
- * Length of audio, in seconds
+ * The original .aupreset as an NSDictionary object
  */
-@property (nonatomic, readonly) NSTimeInterval duration;
+@property (nonatomic, strong, readonly) NSDictionary *aupreset;
 
 /*!
- * Current playback position, in seconds
- */
-@property (nonatomic, readonly) NSTimeInterval currentTime; // TODO: some guru to make this "assign"-able, see See: http://lists.apple.com/archives/coreaudio-api/2005/Dec/msg00010.html
-
-/*!
- * Wether the last render cycle output silence or not.
+ * Wether the last render cycle output silence or not.  This can be useful if you wish 
+ * stop the sound - if it has no audio, just stop it, or optionally fade out first.
  */
 @property (nonatomic, readonly) BOOL outputIsSilence;
-
-/*!
- * Whether to loop this track
- */
-@property (nonatomic, readwrite) BOOL loop;
 
 /*!
  * Track volume
@@ -130,7 +137,7 @@ extern "C" {
 @property (nonatomic, assign) BOOL channelIsMuted;
 
 /*!
- * The audio unit
+ * The AUSampler audio unit
  */
 @property (nonatomic, readonly) AudioUnit audioUnit;
 
@@ -139,20 +146,13 @@ extern "C" {
  */
 @property (nonatomic, readonly) AUNode audioGraphNode;
 
-/*!
- * Whether the track automatically removes itself from the audio controller after playback completes.
- */
-@property (nonatomic, readwrite) BOOL removeUponFinish;
 
-/*!
- * A block to be called when playback finishes; will be called repeatedly in case of a looping file.
- */
-@property (nonatomic, copy) void(^completionBlock)();
+//- (void)noteOn:(unsigned short)midiNoteNumber velocity:(unsigned short)velocity;
+//- (void)noteOff:(unsigned short)midiNoteNumber velocity:(unsigned short)velocity;
 
-/*!
- * A block to be called when the loop restarts in loop mode.
- */
-@property (nonatomic, copy) void(^startLoopBlock)();
+
+/*! Used internally and by subclasses, don't call manually */
+- (void)didRecreateGraph:(NSNotification*)notification;
 
 @end
 

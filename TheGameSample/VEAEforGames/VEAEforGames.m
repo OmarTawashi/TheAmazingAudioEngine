@@ -7,12 +7,24 @@
 //
 
 #import "VEAEforGames.h"
+#import <QuartzCore/QuartzCore.h>
+
+
+//@interface MyAEAudioController : AEAudioController
+//- (AudioUnit)getGroupMixerAudioUnit:(AEChannelGroupRef)channelGroup;
+//@end
+//@implementation MyAEAudioController
+//- (AudioUnit)getGroupMixerAudioUnit:(AEChannelGroupRef)channelGroup {
+//    return channelGroup->mixerAudioUnit;
+//}
+//@end
 
 
 
 #pragma mark - STATIC VARIABLES (used internally to this file)
 
 static AEAudioController *_audCtrlr = nil;
+static AEChannelGroupRef _channelGroup = NULL;
 
 
 
@@ -95,9 +107,8 @@ BOOL audCheckStatus(OSStatus status, const char *errMessage) {
 
 
 void audPrintAudioUnitParametersInScope(AudioUnit audioUnit, int audioUnitScope) { //e.g. kAudioUnitScope_Global
-    NSLog(@"%s - here 1", __PRETTY_FUNCTION__);
+    NSLog(@"%s output:", __PRETTY_FUNCTION__);
     if(audioUnit) {
-        NSLog(@"%s - here 2", __PRETTY_FUNCTION__);
         //  Get number of parameters in this unit (size in bytes really):
         UInt32 parameterListSize = 0;
         audCheckStatus(AudioUnitGetPropertyInfo(audioUnit, kAudioUnitProperty_ParameterList, audioUnitScope, 0, &parameterListSize, NULL), "Couldn't get the audio unit property info.");
@@ -112,17 +123,42 @@ void audPrintAudioUnitParametersInScope(AudioUnit audioUnit, int audioUnitScope)
         for(UInt32 pIndex = 0; pIndex < parametersCount; pIndex++){
             AudioUnitGetProperty(audioUnit, kAudioUnitProperty_ParameterInfo, audioUnitScope, parameterIDs[pIndex], &p, &parameterInfoSize);
             // do whatever you want with each parameter...
-            NSLog(@"    clumpID:%i, cfNameString:%@, unit:%i, minValue:%.2f, maxValue:%.2f, defaultValue:%.2f, flags:%i",
+            NSString *flags = @"";
+            if(p.flags & kAudioUnitParameterFlag_CFNameRelease) flags = [flags stringByAppendingString:@"\n        CFNameRelease"];
+            if(p.flags & kAudioUnitParameterFlag_PlotHistory) flags = [flags stringByAppendingString:@"\n        PlotHistory"];
+            if(p.flags & kAudioUnitParameterFlag_MeterReadOnly) flags = [flags stringByAppendingString:@"\n        MeterReadOnly"];
+            if(p.flags & kAudioUnitParameterFlag_DisplayMask) flags = [flags stringByAppendingString:@"\n        DisplayMask"];
+            if(p.flags & kAudioUnitParameterFlag_DisplaySquareRoot) flags = [flags stringByAppendingString:@"\n        DisplaySquareRoot"];
+            if(p.flags & kAudioUnitParameterFlag_DisplaySquared) flags = [flags stringByAppendingString:@"\n        DisplaySquared"];
+            if(p.flags & kAudioUnitParameterFlag_DisplayCubed) flags = [flags stringByAppendingString:@"\n        DisplayCubed"];
+            if(p.flags & kAudioUnitParameterFlag_DisplayCubeRoot) flags = [flags stringByAppendingString:@"\n        DisplayCubeRoot"];
+            if(p.flags & kAudioUnitParameterFlag_DisplayExponential) flags = [flags stringByAppendingString:@"\n        DisplayExponential"];
+            if(p.flags & kAudioUnitParameterFlag_HasClump) flags = [flags stringByAppendingString:@"\n        HasClump"];
+            if(p.flags & kAudioUnitParameterFlag_ValuesHaveStrings) flags = [flags stringByAppendingString:@"\n        ValuesHaveStrings"];
+            if(p.flags & kAudioUnitParameterFlag_DisplayLogarithmic) flags = [flags stringByAppendingString:@"\n        DisplayLogarithmic"];
+            if(p.flags & kAudioUnitParameterFlag_IsHighResolution) flags = [flags stringByAppendingString:@"\n        IsHighResolution"];
+            if(p.flags & kAudioUnitParameterFlag_NonRealTime) flags = [flags stringByAppendingString:@"\n        NonRealTime"];
+            if(p.flags & kAudioUnitParameterFlag_CanRamp) flags = [flags stringByAppendingString:@"\n        CanRamp"]; // if this, then could use AudioUnitScheduleParameters !!!
+            if(p.flags & kAudioUnitParameterFlag_ExpertMode) flags = [flags stringByAppendingString:@"\n        ExpertMode"];
+            if(p.flags & kAudioUnitParameterFlag_HasCFNameString) flags = [flags stringByAppendingString:@"\n        HasCFNameString"];
+            if(p.flags & kAudioUnitParameterFlag_IsGlobalMeta) flags = [flags stringByAppendingString:@"\n        IsGlobalMeta"];
+            if(p.flags & kAudioUnitParameterFlag_IsElementMeta) flags = [flags stringByAppendingString:@"\n        IsElementMeta"];
+            if(p.flags & kAudioUnitParameterFlag_IsReadable) flags = [flags stringByAppendingString:@"\n        IsReadable"];
+            if(p.flags & kAudioUnitParameterFlag_IsWritable) flags = [flags stringByAppendingString:@"\n        IsWritable"];
+            
+            NSLog(@"    clumpID:%i, cfNameString:%@, unit:%i, minValue:%.2f, maxValue:%.2f, defaultValue:%.2f, flags:%i:'%@'",
                   (unsigned int)p.clumpID,
                   p.cfNameString,
                   (unsigned int)p.unit, p.minValue,
                   p.maxValue,
                   p.defaultValue,
-                  (unsigned int)p.flags);
+                  (unsigned int)p.flags,flags);
         }
     } else {
         NSLog(@"%s(nil) - ERROR: function was called with nil.", __PRETTY_FUNCTION__);
     }
+    
+    NSLog(@"%s output ended.", __PRETTY_FUNCTION__);
 }
 
 
@@ -131,57 +167,23 @@ void audPrintAudioUnitParameters(AudioUnit audioUnit) {
 }
 
 
-SamplerChannel* audGetAUSamplerChannel(AEAudioController *audCtrlr, NSURL *audioFileUrl, BOOL isLooping, int cents) {
-    AudioComponentDescription component = AEAudioComponentDescriptionMake(kAudioUnitManufacturer_Apple,
-                                                                          kAudioUnitType_MusicDevice,
-                                                                          kAudioUnitSubType_Sampler);
-    NSError *error = NULL;
-    SamplerChannel *channel = [[AEAudioUnitChannel alloc]
-                                   initWithComponentDescription:component
-                                   audioController:audCtrlr
-                                   preInitializeBlock:^(AudioUnit samplerUnit) {
-                                       
-//                                       audPrintAudioUnitParameters(samplerUnit);
-                                       
-                                       // Load a .aupreset file
-                                       NSURL *url = [[NSBundle mainBundle] URLForResource:@"VolumePanPitch" withExtension:@"aupreset"];
-                                       NSMutableDictionary *aupreset = [NSMutableDictionary dictionaryWithContentsOfURL:url];
-                                       [[aupreset objectForKey:@"file-references"] setValue:[audioFileUrl path] forKey:@"Sample:268435457"];
-                                       
-                                       // Is looping?
-                                       NSDictionary *zone = [[[aupreset objectForKey:@"Instrument"] objectForKey:@"Layers"][0] objectForKey:@"Zones"][0];
-                                       if(isLooping) {
-                                           [zone setValue:@YES forKey:@"loop enabled"];
-                                       }
-                                       
-                                       // Changed pitch?
-                                       if(cents!=0) {
-                                           float f    = ((float)cents) / 100.0;
-                                           int course = (int)f;
-                                           int fine   = (int)((f - ((float)course)) * 100.0);
-                                           [zone setValue:[NSNumber numberWithInt:course] forKey:@"coarse tune"];
-                                           [zone setValue:[NSNumber numberWithInt:fine] forKey:@"fine tune"];
-                                       }
-                                       
-                                       // Convert the data object into a property list
-                                       CFPropertyListRef presetPropertyList = (__bridge CFPropertyListRef)(aupreset);
-                                       
-                                       // Set the class info property for the Sampler unit using the property list as the value.
-                                       audCheckStatus(AudioUnitSetProperty(samplerUnit,
-                                                                           kAudioUnitProperty_ClassInfo,
-                                                                           kAudioUnitScope_Global,
-                                                                           0,
-                                                                           &presetPropertyList,
-                                                                           sizeof(CFPropertyListRef)
-                                                                           ),"Unable to set aupreset on the AUSampler Audio Unit");
-                                   }
-                                   error:&error];
+
+AudioComponentDescription audGetComponentDescription(AudioUnit audioUnit) {
+    AudioComponentDescription component = {0};
+    audCheckStatus(AudioComponentGetDescription(AudioComponentInstanceGetComponent(audioUnit), &component), "AudioComponentGetDescription(AudioComponentInstanceGetComponent(...)) failed");
+    return component;
+}
+
+
+AEGameSoundChannel* audGetAUSamplerChannel(AEAudioController *audCtrlr, NSURL *audioFileUrl, BOOL isLooping, int cents) {
     
-    if ( channel ) {
+    NSError *error;
+    AEGameSoundChannel *channel = [[AEGameSoundChannel alloc] initWithFileURL:audioFileUrl audioController:_audCtrlr shouldLoop:isLooping cents:cents error:&error];
+    if(channel) {
         return channel;
     } else {
         // Report error
-        printf("Can't get instrument SamplerChannel object");
+        printf("Can't get AEGameSoundChannel object");
         return nil;
     }
 }
@@ -272,6 +274,13 @@ AEAudioController* audInit(AEAudioController *audioControllerOrNil) {
         }
         
     }
+    
+    // Create our channel group
+    if(_channelGroup==NULL) {
+        _channelGroup = [_audCtrlr createChannelGroup];
+        
+    }
+    
     return _audCtrlr;
 }
 
@@ -284,18 +293,18 @@ AEAudioController* audController() {
 
 #pragma mark - "GAME ENGINE" GAME USE
 
-SamplerChannel* audLoadEffect(NSString *fullPathToFile, float pitch, float pan, BOOL isLooping) {
+AEGameSoundChannel* audLoadEffect(NSString *fullPathToFile, float pitch, float pan, BOOL isLooping) {
     if(_audCtrlr==nil) {
         audInit(nil);
     }
     if(_audCtrlr) {
         int cents = ((int)(MAX(0.0,MIN(2.0, pitch)) * 2400.0)) - 2400; // range +/-2400
-        BOOL isLooping = NO;
         NSURL *url = [NSURL fileURLWithPath:fullPathToFile];
-        SamplerChannel *channel = audGetAUSamplerChannel(_audCtrlr, url, isLooping, cents);
+        AEGameSoundChannel *channel = audGetAUSamplerChannel(_audCtrlr, url, isLooping, cents);
         if(channel) {
             ///TODO: create channel group for all effects?
-            [_audCtrlr addChannels:@[channel]];
+            channel.auPan = pan;
+            [_audCtrlr addChannels:@[channel] toChannelGroup:_channelGroup];
             return channel;
         } else {
             return nil; // ERROR: couldn't create the channel
@@ -306,11 +315,59 @@ SamplerChannel* audLoadEffect(NSString *fullPathToFile, float pitch, float pan, 
 }
 
 
-void audPlayEffect(SamplerChannel *samplerChannel, float volume) {
-    NSLog(@"%s - %@, %.2f", __PRETTY_FUNCTION__, samplerChannel, volume);
+void audPlayEffect(AEGameSoundChannel *samplerChannel, float volume) {
+//    NSLog(@"%s - %@, %.2f", __PRETTY_FUNCTION__, samplerChannel, volume);
+//    int scopes[8] = {
+//        kAudioUnitScope_Global		,
+//        kAudioUnitScope_Input		,
+//        kAudioUnitScope_Output		,
+//        kAudioUnitScope_Group		,
+//        kAudioUnitScope_Part		,
+//        kAudioUnitScope_Note		,
+//        kAudioUnitScope_Layer		,
+//        kAudioUnitScope_LayerItem
+//    };
+//    kAUSamplerParam_Gain
+//    for(int i=0; i<8; ++i)
+//        audPrintAudioUnitParametersInScope(samplerChannel.audioUnit, scopes[i]);//AudioUnitScheduleParameters
+//    audPrintAudioUnitParametersInScope([_audCtrlr getGroupMixerAudioUnit:_channelGroup], kAudioUnitScope_Output);
+    
+//    kAudioUnitProperty_MeteringMode
+//    kAudioUnitRenderAction_OutputIsSilence
+//    kAudioUnitRenderAction_OutputIsSilence
+    
+    //HACK: test to see if gain is "meter" as per property info dump
+//    float incrBy = 0.05; // delay
+//    __block float curVal = 0.05;
+//    float endAt = 2.0;
+//    ae_timer_block_t block = ^{
+//        if( (samplerChannel!=nil) && (incrBy > 0.0 && curVal <= endAt) ) {
+////            audCheckStatus(AudioUnitSetParameter(samplerChannel.audioUnit,
+////                                                 kAUSamplerParam_Gain,
+////                                                 kAudioUnitScope_Global,
+////                                                 0,
+////                                                 curVal,
+////                                                 0), // N/A
+////                           "AudioUnitSetParameter[inID] failed");
+//            AudioUnitParameterValue outVal = 0;
+//            audCheckStatus(AudioUnitGetParameter(samplerChannel.audioUnit, kAUSamplerParam_Gain, kAudioUnitScope_Global, 0, &outVal), "read param failed!");
+//            printf("outVal == %.3f\n",outVal);
+//            curVal += incrBy;
+//            return NO; // keep iterating
+//        } else {
+//            return YES; // we're finished
+//        }
+//    };
+    
+    // Send the block to the timer
+//    [AEBlockTimer scheduleBlock:block inTimeInterval:0.05];
+    
+    
+    
+    
     static UInt32 midiNoteNum = 0;
     UInt32 onVelocity = 127 * (MAX(0, MIN(1.0, volume)));
-    NSLog(@"    ...going to play %@, noteOn, %i, %i", samplerChannel.audioUnit, (int)midiNoteNum, (int)onVelocity);
+//    NSLog(@"    ...going to play %@, noteOn, %i, %i", samplerChannel.audioUnit, (int)midiNoteNum, (int)onVelocity);
     MusicDeviceMIDIEvent(samplerChannel.audioUnit, kMidiMessage_NoteOn, midiNoteNum, onVelocity, 0);
     
     // In case of repeated plays on same AUSampler, change the MIDI note # so the prev. playing instance doesn't stop
@@ -318,6 +375,48 @@ void audPlayEffect(SamplerChannel *samplerChannel, float volume) {
     if(midiNoteNum>127) {
         midiNoteNum = 0;
     }
+}
+
+
+/** Fade in/out the volume between the range of 0.0 and 1.0 */
+void audRampEffectVolume(AEGameSoundChannel *samplerChannel, float fromVolume, float toVolume, float duration) {
+    NSLog(@"%s from: %.3f  to: %.3f", __PRETTY_FUNCTION__, 127 * MAX(0.0, MIN(1.0, fromVolume)), 127 * MAX(0.0, MIN(1.0, toVolume)));
+    audModulate(samplerChannel,
+                kAUGroupParameterID_Volume,
+                kAudioUnitScope_Group,
+                0,    // bus
+                127 * MAX(0.0, MIN(1.0, fromVolume)),
+                127 * MAX(0.0, MIN(1.0, toVolume)),
+                0,    // start frame
+                MAX(0.001, duration)); // duration
+}
+
+
+/** Ramp the pitch up/down between the range of 0.0 (down two octaves) and 2.0 (up two octaves), where 1.0 == at pitch */
+void audRampEffectPitch(AEGameSoundChannel *samplerChannel, float fromPitch, float toPitch, float duration) {
+    NSLog(@"%s from: %.3f  to: %.3f", __PRETTY_FUNCTION__, 127 * MAX(0.0, MIN(1.0, fromPitch * 0.5)), 127 * MAX(0.0, MIN(1.0, toPitch * 0.5)));
+    audModulate(samplerChannel,
+                kAUGroupParameterID_PitchBend,  // in our aupreset we've set pitch bend to the full range of +/-2 octaves
+                kAudioUnitScope_Group,
+                0,    // bus
+                127 * MAX(0.0, MIN(1.0, fromPitch * 0.5)),
+                127 * MAX(0.0, MIN(1.0, toPitch * 0.5)),
+                0,    // start frame
+                MAX(0.001, duration)); // duration
+}
+
+
+/** Pan the audio from one side to the other (stereo) between the range of -1.0 (fully left) to 1.0 (fully right). */
+void audRampEffectPan(AEGameSoundChannel *samplerChannel, float fromPan, float toPan, float duration) {
+    NSLog(@"%s from: %.3f  to: %.3f", __PRETTY_FUNCTION__, 127 * MAX(0.0, MIN(1.0, ((fromPan + 1.0) * 0.5))), 127 * MAX(0.0, MIN(1.0, ((toPan + 1.0) * 0.5))));
+    audModulate(samplerChannel,
+                kAUGroupParameterID_Pan,
+                kAudioUnitScope_Group,
+                0,    // bus
+                127 * MAX(0.0, MIN(1.0, ((fromPan + 1.0) * 0.5))),
+                127 * MAX(0.0, MIN(1.0, ((toPan + 1.0) * 0.5))),
+                0,    // start frame
+                MAX(0.001, duration)); // duration
 }
 
 
@@ -332,7 +431,7 @@ AmbienceChannel* audLoadAmbience(NSString *fullPathToFile, float pitch, float pa
         seeded = YES;
     }
     if(_audCtrlr) {
-        NSLog(@"%s - going to attempt loading AEAUAudioFilePlayerChannel...", __PRETTY_FUNCTION__);
+//        NSLog(@"%s - going to attempt loading AEAUAudioFilePlayerChannel...", __PRETTY_FUNCTION__);
         AEAUAudioFilePlayerChannel *channel = [[AEAUAudioFilePlayerChannel alloc] initWithFileURL:[NSURL fileURLWithPath:fullPathToFile]
                                                                                   audioController:_audCtrlr
                                                                                        shouldLoop:YES
@@ -342,25 +441,70 @@ AmbienceChannel* audLoadAmbience(NSString *fullPathToFile, float pitch, float pa
             __block unsigned int numCalls = 0;
             channel.startLoopBlock = ^{ printf("\n%i:channel.startLoopBlock()",++numCalls); };
             channel.channelIsPlaying = NO;
-            [_audCtrlr addChannels:@[channel]];
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.01 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                NSLog(@"going to ramp channel audiounit volume down to 0.0");
+                audModulate(channel, kAudioUnitParameterUnit_LinearGain, kAudioUnitScope_Global, 0, 1.0, 0.0, 0, 1.0);
+            });
+            [_audCtrlr addChannels:@[channel] toChannelGroup:_channelGroup];
+            
             
             // Add a filter
-            float randRate = 1.0;//0.75 + 0.5 * drand48();
-            int randCent = arc4random_uniform(2400) - 1200;
-            NSLog(@"...will play back at randRate: %.2f, and randCent: %i", randRate, randCent);
-            AEAudioUnitFilter *newFilter = audAUNewTimePitchFilter(_audCtrlr, channel.audioUnit, randRate, randCent);
-            if(newFilter) {
-                [_audCtrlr addFilter:newFilter toChannel:channel];
-            }
+//            float randRate = 1.0;//0.75 + 0.5 * drand48();
+//            int randCent = arc4random_uniform(2400) - 1200;
+//            NSLog(@"...will play back at randRate: %.2f, and randCent: %i", randRate, randCent);
+//            AEAudioUnitFilter *newFilter = audAUNewTimePitchFilter(_audCtrlr, channel.audioUnit, randRate, randCent);
+//            if(newFilter) {
+//                [_audCtrlr addFilter:newFilter toChannel:channel];
+//            }
             
             // Add varispeed fiolter
 //            float randRate = 0.75 + 0.5 * drand48();
-//            int randCent = arc4random_uniform(2400) - 1200;
+//            int randCent = 0;//arc4random_uniform(2400) - 1200;
 //            NSLog(@"...will play back at randCent: %i", randCent);
 //            AEAudioUnitFilter *newFilter = audAUVarispeedFilterCents(_audCtrlr, channel.audioUnit, randCent);
 //            if(newFilter) {
 //                [_audCtrlr addFilter:newFilter toChannel:channel];
 //            }
+            
+            
+            
+//            // Add, then modulate a varispeed filter
+//            __block float start_value = -1200;
+//            AEAudioUnitFilter *newFilter = audAUVarispeedFilterCents(_audCtrlr, channel.audioUnit, start_value); // start at pitch, then we'll modulate!
+//            if(newFilter) {
+//                [_audCtrlr addFilter:newFilter toChannel:channel];
+//                __block float end_value = 1200;
+//                float duration_in_seconds = 3.5;
+//                audModulate(newFilter,
+//                            kVarispeedParam_PlaybackCents,
+//                            kAudioUnitScope_Global,
+//                            0,
+//                            start_value,
+//                            end_value,
+//                            0,
+//                            duration_in_seconds);
+//                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(duration_in_seconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+//                    audModulate(newFilter,
+//                                kVarispeedParam_PlaybackCents,
+//                                kAudioUnitScope_Global,
+//                                0,
+//                                end_value,
+//                                start_value,
+//                                0,
+//                                duration_in_seconds);
+//                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(duration_in_seconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+//                        audModulate(newFilter,
+//                                    kVarispeedParam_PlaybackCents,
+//                                    kAudioUnitScope_Global,
+//                                    0,
+//                                    start_value,
+//                                    0,
+//                                    0,
+//                                    duration_in_seconds);
+//                    });
+//                });
+//            }
+            
             
             channel.channelIsPlaying = YES;
             
@@ -373,6 +517,74 @@ AmbienceChannel* audLoadAmbience(NSString *fullPathToFile, float pitch, float pa
     } else {
         return nil; // ERROR: not initialized
     }
+}
+
+
+void audModulate(id<HasAnAudioUnitProperty> strongRefToChannel,
+                 AudioUnitParameterID		inID,
+                 AudioUnitScope				inScope,
+                 AudioUnitElement			inElement,
+                 AudioUnitParameterValue	startValue,
+                 AudioUnitParameterValue	endValue,
+                 UInt32						inBufferOffsetInFrames,
+                 Float32                    duration) {
+    
+    __typeof__(strongRefToChannel) __weak channel = strongRefToChannel;
+    if(channel != nil && channel.audioUnit != NULL) {
+        
+#ifdef __MAC_OS_X_VERSION_MAX_ALLOWED
+        static const AudioUnitParameterValue fps = 20.0; // Higher for Mac - more CPU available
+#else
+        static const AudioUnitParameterValue fps = 10.0; // For gaming quality, this seems good & saves a fair bit of CPU, e.g. on iPhone 6 cpu dropped 10-15% when lowered from 25fps to 10fps.
+#endif
+        static const AudioUnitParameterValue delay = 1.0 / fps;
+        __block AudioUnitParameterValue curVal = startValue;
+        __block AudioUnitParameterValue incrBy = (endValue - startValue) / (duration / delay); // presumably this is greater than epsilon
+        __block AudioUnitParameterValue endAt  = endValue + (FLT_EPSILON * (incrBy ? 1.0 : -1.0));  // want to make sure endValue is fully reached
+//        NSLog(@"curVal/endAt/incrBy/delay == %.2f/%.2f/%.3f/%.2f", curVal, endAt, incrBy, delay);
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        // NOTES: I tested using MIDI cc events for this instead of direct parameter modulation - the CPU is perhaps marginally lower (eye-balling it), however the performance is worse as soon as more than one parameter is modulated at the same time.
+        
+        // Immediately set starting value so we don't get an artifact on multiple runs/starts of the same effect
+        audCheckStatus(AudioUnitSetParameter(channel.audioUnit,
+                                             inID,
+                                             inScope,
+                                             inElement,
+                                             curVal,
+                                             inBufferOffsetInFrames),
+                       "AudioUnitSetParameter[inID] failed");
+        curVal += incrBy;
+        
+        // then setup a block to "modulate" through the range over time increments
+        ae_timer_block_t block = ^{
+            if( (channel!=nil) && ((incrBy > 0.0 && curVal <= endAt) || (incrBy < 0.0 && curVal >= endAt))) {
+                audCheckStatus(AudioUnitSetParameter(channel.audioUnit,
+                                                     inID,
+                                                     inScope,
+                                                     inElement,
+                                                     curVal,
+                                                     inBufferOffsetInFrames),
+                               "AudioUnitSetParameter[inID] failed");
+                curVal += incrBy;
+                return NO; // keep iterating
+            } else {
+                return YES; // we're finished
+            }
+        };
+        
+        // Send the block to the timer
+        [AEBlockTimer scheduleBlock:block inTimeInterval:delay];
+    } // END if(inUnit)...
 }
 
 
