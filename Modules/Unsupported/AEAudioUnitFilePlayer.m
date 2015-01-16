@@ -123,7 +123,7 @@ static inline void ResetFormat(AudioStreamBasicDescription *ioDescription) {
     rgn.mCompletionProc = NULL;
     rgn.mCompletionProcUserData = NULL;
     rgn.mAudioFile = audioFile;
-    if (self.loop == YES){
+    if (self.loop){
         rgn.mLoopCount = UINT32_MAX;
     }
     else{

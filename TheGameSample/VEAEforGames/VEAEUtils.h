@@ -1,6 +1,5 @@
 //
-//  VEMIDI_C_Lib.h
-//  TheGameSample
+//  VEAEUtils.h
 //
 //  Created by Leo on 2014-12-17.
 //  Copyright (c) 2014 The Amazing Audio Engine. All rights reserved.
@@ -8,61 +7,92 @@
 
 #import <Foundation/Foundation.h>
 #import <AudioToolbox/AudioToolbox.h>
-#import "AUMIDIDefs.h"
+#import "TheAmazingAudioEngine.h"
 
-
+#ifndef __VEAEUtils_h__
+#define __VEAEUtils_h__
 /*
  This library provides MIDI related functions so that the same code doesn't need to be repeated in various places 
  throughout your own projects (e.g. MIDI pitch bend messages code, etc.).
  If a DEBUG macro is defined and set to true, then these functions will log error to the console.
  */
-#ifndef __VEMIDI_C_Lib_h__
-#define __VEMIDI_C_Lib_h__
+
+
+
+#pragma mark - Static Inline C Functions
+
+/*! Convert OpenAL float pitch in the range of 0.0 to 2.0 to cents in the range of +/-2400. */
+static inline float audPitchToCents(float pitch) { return 2400.0 * (MAX(0.0, MIN(2.0, pitch)) - 1.0); }
+
+/*! Convert AudioUnit cents in the range of -2400 to 2400 to OpenAL float pitch in the range of 0.0 to 2.0. */
+static inline float audCentsToPitch(float cents) { return (MAX(-2400.0, MIN(2400.0, cents)) / 2400.0) + 1.0; }
+
+
+
+#pragma mark - C Functions
 
 /*!
- @abstract sends a MIDI Note On event to the instrument
- @param note the note number (key) to play. Range: 0 -> 127
- @param velocity specifies the volume with which the note is played. Range: 0 -> 127
+ @abstract Print out all available AudioUnit parameters in the kAudioUnitScope_Global to the console. 
+ @param audioUnit the audioUnit for which to print out the parameters.
  */
-void midiNoteOn(AudioUnit instrumentAU, uint8_t note, uint8_t velocity);
+void audPrintAUParameters(AudioUnit audioUnit); // <-- kAudioUnitScope_Global
 
 /*!
- @abstract sends a MIDI Note Off event to the instrument
- @param note the note number (key) to stop Range: 0 -> 127
+ @abstract Print out all available AudioUnit parameters to the console.
+ @param audioUnit the audioUnit for which to print out the parameters.
+ @param audioUnitScope the scope which to print paramters for, e.g. kAudioUnitScope_Global
  */
-void midiNoteOff(AudioUnit instrumentAU, uint8_t note);
+void audPrintAUParametersInScope(AudioUnit audioUnit,
+                                 int audioUnitScope);
 
 /*!
- @abstract send a MIDI controller event to the instrument.
- @param controller a standard MIDI controller number. Range: 0 -> 127
- @param  value value for the controller. Range: 0 -> 127
+ @abstract Get the AudioComponentDescription from an AudioUnit instance
+ @param audioUnit the audioUnit for which to print out the parameters.
  */
-void midiSendController(AudioUnit instrumentAU, uint8_t controller, uint8_t value);
+AudioComponentDescription audGetComponentDescription(AudioUnit audioUnit);
 
 /*!
- @abstract sends MIDI Pitch Bend event to the instrument.
- @param pitchbend value of the pitchbend Range: 0 -> 16383
+ @abstract Get a new instance of AUVarispeed configured and ready for use as a TAAE channel filter.
+ @param audioController the AEAudioController object that will be using this filter.
+ @param audioUnitToFilter the audioUnit which the filter will be applied to.
+ @param cents the pitch to set the AUVarispeed.  Range is +/-2400.
  */
-void midiSendPitchBend(AudioUnit instrumentAU, uint16_t bendValue);
+AEAudioUnitFilter* audCreateAUVarispeedFilter(AEAudioController *audioController,
+                                              AudioUnit audioUnitToFilter,
+                                              int16_t cents);
 
 /*!
- @abstract sends MIDI all notes off event to the instrument.
+ @abstract Get a new instance of AUNewTimePitch configured and ready for use as a TAAE channel filter.
+ @param audioController the AEAudioController object that will be using this filter.
+ @param audioUnitToFilter the audioUnit which the filter will be applied to.
+ @param rate the speed at which the audio should play back at.  Range is 1/32 up to 32.0
+ @param cents the pitch to set the AUVarispeed.  Range is +/-2400.
  */
-void midiAllNotesOff(AudioUnit instrumentAU);
-
-/*!
- @abstract sends MIDI all sound off event to the instrument; the instrument must support this for it to work.
- */
-void midiAllSoundOff(AudioUnit instrumentAU);
-
-/*!
- @abstract sends MIDI event to the instrument to reset all controllers to their default "positions" (values).
- */
-void midiResetAllControllers(AudioUnit instrumentAU);
+AEAudioUnitFilter* audCreateAUNewTimePitchFilter(AEAudioController *audioController,
+                                                 AudioUnit audioUnitToFilter,
+                                                 float rate,
+                                                 int16_t cents);
 
 
 
 
 
 
-#endif // __VEMIDI_C_Lib_h__
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#endif // __VEAEUtils_h__

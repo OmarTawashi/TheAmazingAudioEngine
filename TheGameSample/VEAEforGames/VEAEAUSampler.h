@@ -1,5 +1,5 @@
 //
-//  AEAUSamplerChannel.h
+//  VEAEAUSampler.h
 //  TheAmazingAudioEngine
 //
 //  This file is based on "AEAudioUnitChannel.h" which was created by Michael
@@ -32,6 +32,7 @@ extern "C" {
 
 #import <Foundation/Foundation.h>
 #import "TheAmazingAudioEngine.h"
+#import "AUMIDIDefs.h"
 
 /*!
  * Audio Unit Channel
@@ -41,7 +42,7 @@ extern "C" {
  *  and the sampler audio unit will be initialised, ready for use.
  *
  */
-@interface AEAUSamplerChannel : NSObject <AEAudioPlayable> {
+@interface VEAEAUSampler : NSObject <AEAudioPlayable> {
     AEAudioController *_audioController;
     AudioComponentDescription _componentDescription;
     AUNode _node;
@@ -61,9 +62,9 @@ extern "C" {
  * @param error On output, if not NULL, will point to an error if a problem occurred
  * @return The initialised channel
  */
-- (id)initWithFileURL:(NSURL*)aupresetFileURL
-      audioController:(AEAudioController*)audioController
-                error:(NSError**)error;
+- (instancetype)initWithFileURL:(NSURL*)aupresetFileURL
+                audioController:(AEAudioController*)audioController
+                          error:(NSError**)error;
 
 /*!
  * Create a new Audio Unit channel
@@ -75,10 +76,10 @@ extern "C" {
  * @param error On output, if not NULL, will point to an error if a problem occurred
  * @return The initialised channel
  */
-- (id)initWithFileURL:(NSURL*)aupresetFileURL
-      audioController:(AEAudioController*)audioController
-   preInitializeBlock:(void(^)(AudioUnit audioUnit))block
-                error:(NSError**)error;
+- (instancetype)initWithFileURL:(NSURL*)aupresetFileURL
+                audioController:(AEAudioController*)audioController
+             preInitializeBlock:(void(^)(AudioUnit audioUnit))block
+                          error:(NSError**)error;
 
 /*!
  * Create a new Audio Unit channel
@@ -147,11 +148,45 @@ extern "C" {
 @property (nonatomic, readonly) AUNode audioGraphNode;
 
 
-//- (void)noteOn:(unsigned short)midiNoteNumber velocity:(unsigned short)velocity;
-//- (void)noteOff:(unsigned short)midiNoteNumber velocity:(unsigned short)velocity;
+/*! @method startNote:withVelocity
+ @abstract sends a MIDI Note On event to the instrument
+ @param note the note number (key) to play. Range: 0 -> 127
+ @param velocity specifies the volume with which the note is played. Range: 0 -> 127
+ */
+- (void)startNote:(uint8_t)note withVelocity:(uint8_t)velocity;
 
+/*! @method stopNote
+ @abstract sends a MIDI Note Off event to the instrument
+ @param note the note number (key) to stop Range: 0 -> 127
+ */
+- (void)stopNote:(uint8_t)note;
 
-/*! Used internally and by subclasses, don't call manually */
+/*! @method sendController:withValue
+ @abstract send a MIDI controller event to the instrument.
+ @param controller a standard MIDI controller number. Range: 0 -> 127
+ @param  value value for the controller. Range: 0 -> 127
+ */
+- (void)sendController:(uint8_t)controller withValue:(uint8_t)value;
+
+/*! @method sendPitchBend
+ @abstract sends MIDI Pitch Bend event to the instrument.
+ @param pitchbend value of the pitchbend Range: 0 -> 16383
+ */
+- (void)sendPitchBend:(uint16_t)pitchbend;
+
+/*! Stop all notes. */
+- (void)allNotesOff;
+
+/*! Stop all sound. */
+- (void)allSoundOff;
+
+/*! Reset all controllers. */
+- (void)resetAllControllers;
+
+/*! Stop all MIDI notes, stop all sound output and reset all controller values. */
+- (void)panic;
+
+/*! Declared here so sublasses can call it via [super didRecreateGraph:], don't call this manually. */
 - (void)didRecreateGraph:(NSNotification*)notification;
 
 @end

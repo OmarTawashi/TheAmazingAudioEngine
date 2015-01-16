@@ -1,5 +1,5 @@
 //
-//  AEAUAudioFilePlayerChannel.h
+//  VEAEGameTrack.h
 //  TheAmazingAudioEngine
 //
 //  This file is based on "AEAudioUnitChannel.h" which was created by Michael
@@ -41,7 +41,7 @@ extern "C" {
  *  corresponding audio player unit will be initialised, ready for use.
  *
  */
-@interface AEAUAudioFilePlayerChannel : NSObject <AEAudioPlayable>
+@interface VEAEGameTrack : NSObject <AEAudioPlayable>
 
 /*!
  * Create a new Audio Unit channel
@@ -52,10 +52,10 @@ extern "C" {
  * @param shouldLoop Whether to loop the audio file or not.
  * @return The initialised channel
  */
-- (id)initWithFileURL:(NSURL*)fileURL
-      audioController:(AEAudioController*)audioController
-           shouldLoop:(BOOL)shouldLoop
-                error:(NSError**)error;
+- (instancetype)initWithFileURL:(NSURL*)fileURL
+                audioController:(AEAudioController*)audioController
+                     shouldLoop:(BOOL)shouldLoop
+                          error:(NSError**)error;
 
 /*!
  * Create a new Audio Unit channel
@@ -68,11 +68,11 @@ extern "C" {
  * @param error On output, if not NULL, will point to an error if a problem occurred
  * @return The initialised channel
  */
-- (id)initWithFileURL:(NSURL*)fileURL
-      audioController:(AEAudioController*)audioController
-   preInitializeBlock:(void(^)(AudioUnit audioUnit))block
-           shouldLoop:(BOOL)shouldLoop
-                error:(NSError**)error;
+- (instancetype)initWithFileURL:(NSURL*)fileURL
+                audioController:(AEAudioController*)audioController
+             preInitializeBlock:(void(^)(AudioUnit audioUnit))block
+                     shouldLoop:(BOOL)shouldLoop
+                          error:(NSError**)error;
 
 
 /*! 
@@ -91,7 +91,7 @@ extern "C" {
 @property (nonatomic, readonly) NSTimeInterval currentTime; // TODO: some guru to make this "assign"-able, see See: http://lists.apple.com/archives/coreaudio-api/2005/Dec/msg00010.html
 
 /*!
- * Wether the last render cycle output silence or not.
+ * Wether the last render cycle output silence or not.  This property is NOT KVO compliant.
  */
 @property (nonatomic, readonly) BOOL outputIsSilence;
 

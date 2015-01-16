@@ -1,5 +1,5 @@
 //
-//  VEAEGameSound.m
+//  AEGameSoundChannel.m
 //  TheAmazingAudioEngine
 //
 //  This file is based on "AEAudioUnitChannel.m" which was created by Michael
@@ -26,15 +26,13 @@
 //  3. This notice may not be removed or altered from any source distribution.
 //
 
-#import "VEAEGameSound.h"
+#import "AEGameSoundChannel.h"
 
 #define checkResult(result,operation) (_checkResult((result),(operation),strrchr(__FILE__, '/')+1,__LINE__))
 static inline BOOL _checkResult(OSStatus result, const char *operation, const char* file, int line) {
     if ( result != noErr ) {
-        #if defined(DEBUG) && DEBUG
-            int fourCC = CFSwapInt32HostToBig(result);
-            NSLog(@"%s:%d: %s result %d %08X %4.4s\n", file, line, operation, (int)result, (int)result, (char*)&fourCC);
-        #endif
+        int fourCC = CFSwapInt32HostToBig(result);
+        NSLog(@"%s:%d: %s result %d %08X %4.4s\n", file, line, operation, (int)result, (int)result, (char*)&fourCC);
         return NO;
     }
     return YES;
@@ -78,55 +76,46 @@ typedef struct _modulate_param_5 {
 } modulate_param_t;
 
 
-@implementation VEAEGameSound {
+@implementation AEGameSoundChannel {
     NSURL *_fileURL;
     
     float _auPan, _auPitchBend, _auVolume;
     
-    BOOL _modulateVolumeStopAfter;
-    BOOL _modulateVolumeUnloadAfter;
     modulate_param_t _modulateVolume;
     modulate_param_t _modulatePitchBend;
     modulate_param_t _modulatePan;
-    
-    BOOL _needToAddSelfAsTimingReceiver;
-    
-    uint8_t _uniqueMidiNoteNumber;
 }
 
 @synthesize url=_fileURL;
 @synthesize loop=_loop;
 
-- (instancetype)initWithFileURL:(NSURL*)fileURL
-                audioController:(AEAudioController*)audioController
-                     shouldLoop:(BOOL)shouldLoop
-                          cents:(int)cents
-                          error:(NSError**)error {
+- (id)initWithFileURL:(NSURL*)fileURL
+      audioController:(AEAudioController*)audioController
+           shouldLoop:(BOOL)shouldLoop
+                cents:(int)cents
+                error:(NSError**)error {
     return [self initWithFileURL:fileURL audioController:audioController preInitializeBlock:NULL shouldLoop:shouldLoop cents:cents error:error];
 }
 
-- (instancetype)initWithFileURL:(NSURL*)fileURL
-                audioController:(AEAudioController*)audioController
-             preInitializeBlock:(void(^)(AudioUnit audioUnit))block
-                     shouldLoop:(BOOL)shouldLoop
-                          cents:(int)cents
-                          error:(NSError**)error {
+- (id)initWithFileURL:(NSURL*)fileURL
+      audioController:(AEAudioController*)audioController
+   preInitializeBlock:(void(^)(AudioUnit audioUnit))block
+           shouldLoop:(BOOL)shouldLoop
+                cents:(int)cents
+                error:(NSError**)error {
     
     // Set iVars
-    _uniqueMidiNoteNumber = 0;
-    _needToAddSelfAsTimingReceiver = YES; // done "lazily"
     _auPan = 0.0; // center
     _auPitchBend = 1.0; // at-pitch
     _auVolume = 1.0; // full volume
-    _modulateVolumeStopAfter = NO;
     _modulateVolume.active = NO; // just for clarity
     _modulatePitchBend.active = NO;
     _modulatePan.active = NO;
     _fileURL = fileURL;
     _loop = shouldLoop;
     
-    // Load the .aupreset file - apparently this is more reliable/predicatble than programmatically initializing the AUSampler, at any length it saves setup work here as we only have to modify a few parameters - probablly we could do this on the audio unit after it has been created, but this works too and is easy/clear.  Doing this programatically could have the advanatage of letting us change these settings after the fact rather than forcing the decision to init time.
-    NSMutableDictionary *aupreset = [NSMutableDictionary dictionaryWithContentsOfURL:[[NSBundle mainBundle] URLForResource:@"VEAEGameSound" withExtension:@"aupreset"]];
+    // Load the .aupreset file
+    NSMutableDictionary *aupreset = [NSMutableDictionary dictionaryWithContentsOfURL:[[NSBundle mainBundle] URLForResource:@"AEGameSoundChannel" withExtension:@"aupreset"]];
     if(aupreset == nil) {
         if(error) {
             *error = [NSError errorWithDomain:@"nil for required object" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"Couldn't initialise audio unit: missing the aupreset"}];
@@ -136,22 +125,15 @@ typedef struct _modulate_param_5 {
     
     // Modify the aupreset dictionary
     [[aupreset objectForKey:@"file-references"] setValue:[_fileURL path] forKey:@"Sample:268435457"];
-    NSDictionary *layer0 = [[aupreset objectForKey:@"Instrument"] objectForKey:@"Layers"][0];
-    NSDictionary *zone0 = [layer0 objectForKey:@"Zones"][0];
-    [zone0 setValue:@(_loop) forKey:@"loop enabled"];
-    if(_loop) {
-        [aupreset setValue:@1 forKey:@"voice count"]; // for a looping game sound automatically turn of any other playing notes when a new one is started, however this doesn't actually work, see http://lists.apple.com/archives/coreaudio-api/2012/May/msg00095.html - in AU Lab the "voice count" setting definitly works, but the AUSampler instance itself doesn't turn off previously playing notes if a new one is played.
-        
-        // We want to set "trigger mode" back to default, which is down=>play, up=>stop playing... "trigger mode" 11 is keyDown ignore keyUp, and "trigger mode" 12 is keyUp... default could not be determined and AU Lab simply removes the item from the aupreset file for the default mode.
-        [layer0 setValue:nil forKey:@"trigger mode"]; // remove it
-    }
+    NSDictionary *zone = [[[aupreset objectForKey:@"Instrument"] objectForKey:@"Layers"][0] objectForKey:@"Zones"][0];
+    [zone setValue:@(_loop) forKey:@"loop enabled"];
     float f    = ((float)cents) / 100.0;
     int coarse = (int)f;
     int fine   = (int)((f - ((float)coarse)) * 100.0);
-    [zone0 setValue:[NSNumber numberWithInt:coarse] forKey:@"coarse tune"]; // full semi-tones
-    [zone0 setValue:[NSNumber numberWithInt:fine] forKey:@"fine tune"];     // cents in-between semi-tones
+    [zone setValue:[NSNumber numberWithInt:coarse] forKey:@"coarse tune"]; // full semi-tones
+    [zone setValue:[NSNumber numberWithInt:fine] forKey:@"fine tune"];     // cents in-between semi-tones
     
-    // Init the VEAEAUSampler
+    // Init the AEAUSamplerChannel
     return [super initWithDictionary:aupreset audioController:audioController preInitializeBlock:block error:error];
 }
 
@@ -216,32 +198,7 @@ typedef struct _modulate_param_5 {
 
 #pragma mark - Declared Methods
 
-- (void)play:(float)volume {
-    // For looping game sounds, only every playback one instance
-    if(_loop) {
-        [self allNotesOff];
-    }
-    // Make sure we're not muted
-    if(self.channelIsMuted || !self.channelIsPlaying) {
-        [self allSoundOff]; // make sure any trailing sound is off
-        // Now get ready to make sound
-        [self setChannelIsMuted:NO];
-        [self setChannelIsPlaying:YES];
-    }
-    // Play back the note with a different midi # each time, so subsequent calls to this function to stop playback of the previous note (AUSampler is "mono timberal" so it will stop playback of the same note if it is 'pressed' repeatedly)
-    [self startNote:_uniqueMidiNoteNumber withVelocity:127 * MAX(0,MIN(1.0,volume))];
-    if(_uniqueMidiNoteNumber==127) {
-        _uniqueMidiNoteNumber = 0;
-    } else {
-        _uniqueMidiNoteNumber++;
-    }
-}
-
 - (void)auPanTo:(float)auPanTo duration:(float)duration {
-    if(_needToAddSelfAsTimingReceiver) {
-        _needToAddSelfAsTimingReceiver = NO;
-        [_audioController addTimingReceiver:self];
-    }
     if(_modulatePan.active) {
         // Clear it first
         _modulatePan.active = NO;
@@ -266,10 +223,6 @@ typedef struct _modulate_param_5 {
 }
 
 - (void)auPitchBendTo:(float)auPitchBendTo duration:(float)duration {
-    if(_needToAddSelfAsTimingReceiver) {
-        _needToAddSelfAsTimingReceiver = NO;
-        [_audioController addTimingReceiver:self];
-    }
     if(_modulatePitchBend.active) {
         // Clear it first
         _modulatePitchBend.active = NO;
@@ -294,14 +247,6 @@ typedef struct _modulate_param_5 {
 }
 
 - (void)auVolumeTo:(float)auVolumeTo duration:(float)duration {
-    [self auVolumeTo:auVolumeTo duration:duration stopAfter:NO];
-}
-
-- (void)auVolumeTo:(float)auVolumeTo duration:(float)duration stopAfter:(BOOL)stopAfter {
-    if(_needToAddSelfAsTimingReceiver) {
-        _needToAddSelfAsTimingReceiver = NO;
-        [_audioController addTimingReceiver:self];
-    }
     if(_modulateVolume.active) {
         // Clear it first
         _modulateVolume.active = NO;
@@ -309,7 +254,7 @@ typedef struct _modulate_param_5 {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.02 * NSEC_PER_SEC)), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.02 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
                 // call ourselves back with the delay compensated for
-                [self auVolumeTo:auVolumeTo duration:MAX(0.05, duration - (float)((mach_absolute_time() - timeBefore)/NSEC_PER_SEC)) stopAfter:stopAfter];
+                [self auVolumeTo:auVolumeTo duration:MAX(0.05, duration - (float)((mach_absolute_time() - timeBefore)/NSEC_PER_SEC))];
             });
         });
         return; // will wait a fraction of a second for previous modulation to stop
@@ -322,38 +267,69 @@ typedef struct _modulate_param_5 {
         _modulateVolume.hostDuration = _secondsToHostTicks(MAX(0.05,duration));
         _modulateVolume.hostEndTime = _modulateVolume.hostStartTime + _modulateVolume.hostDuration; // set future time to be finished by - this "host time" supposedy stops when the machine stops or sleeps, which in our case is good, as our modulation should wait then too
         _modulateVolume.active = YES; // activate it!
-        if(stopAfter) {
-            _modulateVolumeStopAfter = YES;
-        }
-    } else if(stopAfter) {
-        // Just stop right away
-        [self setChannelIsPlaying:NO];
     }
-}
-
-- (void)removeSelf:(float)fadeOutDuration {
-    if(_outputIsSilence || fadeOutDuration<=0.001) {
-        [_audioController removeChannels:@[self]];
-    } else {
-        _modulateVolumeUnloadAfter = YES;
-        [self auVolumeTo:0.0 duration:fadeOutDuration stopAfter:YES];
-    }
-}
-
-- (BOOL)isModulating {
-    return (_modulatePan.active || _modulatePitchBend.active || _modulateVolume.active);
 }
 
 #pragma mark - Overloaded
 
-static OSStatus renderCallback(__unsafe_unretained VEAEGameSound *THIS,
+static OSStatus renderCallback(__unsafe_unretained AEGameSoundChannel *THIS,
                                __unsafe_unretained AEAudioController *audioController,
                                const AudioTimeStamp     *time,
                                UInt32                    frames,
                                AudioBufferList          *audio) {
+    
+    // Volume modulation
+    if(THIS->_modulateVolume.active) {
+        if(time->mHostTime >= THIS->_modulateVolume.hostEndTime) {
+            THIS->_modulateVolume.active = NO;
+            if(noErr==AudioUnitSetParameter(THIS->_audioUnit, kAUGroupParameterID_Volume, kAudioUnitScope_Group, 0, THIS->_modulateVolume.endValue, 0)) {
+                THIS->_auVolume = MAX(0.0,MIN(127.0,(float)THIS->_modulateVolume.endValue)) / 127.0;
+            }
+        } else {
+            float percComplete = ((float)(time->mHostTime - THIS->_modulateVolume.hostStartTime)) / THIS->_modulateVolume.hostDuration;
+            AudioUnitParameterValue newValue = THIS->_modulateVolume.startValue + (percComplete * THIS->_modulateVolume.valueDiff);
+            if(noErr==AudioUnitSetParameter(THIS->_audioUnit, kAUGroupParameterID_Volume, kAudioUnitScope_Group, 0, newValue, 0)) {
+                THIS->_auVolume = MAX(0.0,MIN(127.0,(float)newValue)) / 127.0;
+            }
+        }
+    }
+    
+    // Pan modulation
+    if(THIS->_modulatePan.active) {
+        if(time->mHostTime >= THIS->_modulatePan.hostEndTime) {
+            THIS->_modulatePan.active = NO;
+            if(noErr==AudioUnitSetParameter(THIS->_audioUnit, kAUGroupParameterID_Pan, kAudioUnitScope_Group, 0, THIS->_modulatePan.endValue, 0)) {
+                THIS->_auPan = ((MAX(0.0,MIN(127.0,(float)THIS->_modulatePan.endValue)) / 127.0) * 2.0) - 1.0;
+            }
+        } else {
+            float percComplete = ((float)(time->mHostTime - THIS->_modulatePan.hostStartTime)) / THIS->_modulatePan.hostDuration;
+            AudioUnitParameterValue newValue = THIS->_modulatePan.startValue + (percComplete * THIS->_modulatePan.valueDiff);
+            if(noErr==AudioUnitSetParameter(THIS->_audioUnit, kAUGroupParameterID_Pan, kAudioUnitScope_Group, 0, newValue, 0)) {
+                THIS->_auPan = ((MAX(0.0,MIN(127.0,(float)newValue)) / 127.0) * 2.0) - 1.0;
+            }
+        }
+    }
+    
+    // Pitch modulation
+    if(THIS->_modulatePitchBend.active) {
+        if(time->mHostTime >= THIS->_modulatePitchBend.hostEndTime) {
+            THIS->_modulatePitchBend.active = NO;
+            if(noErr==AudioUnitSetParameter(THIS->_audioUnit, kAUGroupParameterID_PitchBend, kAudioUnitScope_Group, 0, THIS->_modulatePitchBend.endValue, 0)) {
+                THIS->_auPitchBend = (MAX(0.0,MIN(127.0,(float)THIS->_modulatePitchBend.endValue)) / 127.0) * 2.0;
+            }
+        } else {
+            float percComplete = ((float)(time->mHostTime - THIS->_modulatePitchBend.hostStartTime)) / THIS->_modulatePitchBend.hostDuration;
+            AudioUnitParameterValue newValue = THIS->_modulatePitchBend.startValue + (percComplete * THIS->_modulatePitchBend.valueDiff);
+            if(noErr==AudioUnitSetParameter(THIS->_audioUnit, kAUGroupParameterID_PitchBend, kAudioUnitScope_Group, 0, newValue, 0)) {
+                THIS->_auPitchBend = (MAX(0.0,MIN(127.0,(float)newValue)) / 127.0) * 2.0;
+            }
+        }
+    }
+    
     AudioUnitRenderActionFlags flags = 0;
     checkResult(AudioUnitRender(THIS->_audioUnit, &flags, time, 0, frames, audio), "AudioUnitRender");
     THIS->_outputIsSilence = (flags & kAudioUnitRenderAction_OutputIsSilence);
+    
     return noErr;
 }
 
@@ -361,125 +337,11 @@ static OSStatus renderCallback(__unsafe_unretained VEAEGameSound *THIS,
     return renderCallback; // return our subclass render callback
 }
 
-static void notifyModulationStopped(AEAudioController *audioController, void *userInfo, int length) {
-    VEAEGameSound *THIS = (__bridge VEAEGameSound*)*(void**)userInfo;
-    if(   ! THIS->_needToAddSelfAsTimingReceiver
-       && ! THIS->_modulateVolume.active
-       && ! THIS->_modulatePan.active
-       && ! THIS->_modulatePitchBend.active) {
-        THIS->_needToAddSelfAsTimingReceiver = YES;
-        [audioController removeTimingReceiver:THIS];
-    }
-    if( !THIS->_modulateVolume.active && THIS->_modulateVolumeStopAfter) {
-        THIS->_modulateVolumeStopAfter = NO;
-        if(THIS->_modulateVolumeUnloadAfter) {
-            // In this case we want to remove ourself from audioController
-            THIS->_modulateVolumeUnloadAfter = NO;
-            [THIS->_audioController removeChannels:@[THIS]];
-            if(THIS->_modulateVolume.active || THIS->_modulatePan.active || THIS->_modulatePitchBend.active) {
-                [THIS->_audioController removeTimingReceiver:THIS];
-                THIS->_needToAddSelfAsTimingReceiver = YES;
-                THIS->_modulateVolume.active = NO;
-                THIS->_modulatePan.active = NO;
-                THIS->_modulatePitchBend.active = NO;
-            }
-        } else {
-            // Just stop playback of this channel in audioController
-            [THIS setChannelIsPlaying:NO];
-        }
-    }
-}
-
-static void timingReceiver(__unsafe_unretained VEAEGameSound *THIS,
-                           __unsafe_unretained AEAudioController *audioController,
-                           const AudioTimeStamp     *time,
-                           UInt32 const              frames,
-                           AEAudioTimingContext      context) {
-    
-    // This gets called just before every render cycle
-    if(context == AEAudioTimingContextOutput) {
-        
-        // Volume modulation
-        BOOL anyActive = NO;
-        if(THIS->_modulateVolume.active) {
-            anyActive = YES;
-            if(time->mHostTime >= THIS->_modulateVolume.hostEndTime) {
-                THIS->_modulateVolume.active = NO;
-                if(noErr==AudioUnitSetParameter(THIS->_audioUnit, kAUGroupParameterID_Volume, kAudioUnitScope_Group, 0, THIS->_modulateVolume.endValue, 0)) {
-                    THIS->_auVolume = (float)THIS->_modulateVolume.endValue / 127.0;
-                    
-                }
-            } else {
-                float percComplete = ((float)(time->mHostTime - THIS->_modulateVolume.hostStartTime)) / THIS->_modulateVolume.hostDuration;
-                AudioUnitParameterValue newValue = THIS->_modulateVolume.startValue + (percComplete * THIS->_modulateVolume.valueDiff);
-                if(noErr==AudioUnitSetParameter(THIS->_audioUnit, kAUGroupParameterID_Volume, kAudioUnitScope_Group, 0, newValue, 0)) {
-                    THIS->_auVolume = (float)newValue / 127.0;
-                }
-            }
-        }
-        
-        // Pan modulation
-        if(THIS->_modulatePan.active) {
-            anyActive = YES;
-            if(time->mHostTime >= THIS->_modulatePan.hostEndTime) {
-                THIS->_modulatePan.active = NO;
-                if(noErr==AudioUnitSetParameter(THIS->_audioUnit, kAUGroupParameterID_Pan, kAudioUnitScope_Group, 0, THIS->_modulatePan.endValue, 0)) {
-                    THIS->_auPan = (((float)THIS->_modulatePan.endValue / 127.0) * 2.0) - 1.0;
-                }
-            } else {
-                float percComplete = ((float)(time->mHostTime - THIS->_modulatePan.hostStartTime)) / THIS->_modulatePan.hostDuration;
-                AudioUnitParameterValue newValue = THIS->_modulatePan.startValue + (percComplete * THIS->_modulatePan.valueDiff);
-                if(noErr==AudioUnitSetParameter(THIS->_audioUnit, kAUGroupParameterID_Pan, kAudioUnitScope_Group, 0, newValue, 0)) {
-                    THIS->_auPan = (((float)newValue / 127.0) * 2.0) - 1.0;
-                }
-            }
-        }
-        
-        // Pitch modulation
-        if(THIS->_modulatePitchBend.active) {
-            anyActive = YES;
-            if(time->mHostTime >= THIS->_modulatePitchBend.hostEndTime) {
-                THIS->_modulatePitchBend.active = NO;
-                if(noErr==AudioUnitSetParameter(THIS->_audioUnit, kAUGroupParameterID_PitchBend, kAudioUnitScope_Group, 0, THIS->_modulatePitchBend.endValue, 0)) {
-                    THIS->_auPitchBend = ((float)THIS->_modulatePitchBend.endValue / 127.0) * 2.0;
-                }
-            } else {
-                float percComplete = ((float)(time->mHostTime - THIS->_modulatePitchBend.hostStartTime)) / THIS->_modulatePitchBend.hostDuration;
-                AudioUnitParameterValue newValue = THIS->_modulatePitchBend.startValue + (percComplete * THIS->_modulatePitchBend.valueDiff);
-                if(noErr==AudioUnitSetParameter(THIS->_audioUnit, kAUGroupParameterID_PitchBend, kAudioUnitScope_Group, 0, newValue, 0)) {
-                    THIS->_auPitchBend = ((float)newValue / 127.0) * 2.0;
-                }
-            }
-        }
-        
-        // If not modulating, stop receiving timing info
-        if(!anyActive) {
-            AEAudioControllerSendAsynchronousMessageToMainThread(audioController, notifyModulationStopped, &THIS, sizeof(VEAEGameSound*));
-        }
-    }
-}
-
-- (AEAudioControllerTimingCallback)timingReceiverCallback {
-    return timingReceiver;
-}
-
 - (void)didRecreateGraph:(NSNotification*)notification {
     _modulatePan.active = NO;
     _modulatePitchBend.active = NO;
     _modulateVolume.active = NO;
-    if(!_needToAddSelfAsTimingReceiver) {
-        _needToAddSelfAsTimingReceiver = YES;
-        [_audioController removeTimingReceiver:self];
-    }
     [super didRecreateGraph:notification];
-}
-
-
-
--(void)dealloc {
-    if(!_needToAddSelfAsTimingReceiver) {
-        [_audioController removeTimingReceiver:self];
-    }
 }
 
 @end

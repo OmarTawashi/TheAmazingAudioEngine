@@ -1,5 +1,5 @@
 //
-//  AEAUSamplerChannel.m
+//  VEAEAUSampler.m
 //  TheAmazingAudioEngine
 //
 //  This file is based on "AEAudioUnitChannel.m" which was created by Michael
@@ -26,33 +26,36 @@
 //  3. This notice may not be removed or altered from any source distribution.
 //
 
-#import "AEAUSamplerChannel.h"
+#import "VEAEAUSampler.h"
+#import "VEMIDI_C_Lib.h"
 
 #define checkResult(result,operation) (_checkResult((result),(operation),strrchr(__FILE__, '/')+1,__LINE__))
 static inline BOOL _checkResult(OSStatus result, const char *operation, const char* file, int line) {
     if ( result != noErr ) {
-        int fourCC = CFSwapInt32HostToBig(result);
-        NSLog(@"%s:%d: %s result %d %08X %4.4s\n", file, line, operation, (int)result, (int)result, (char*)&fourCC);
+        #if defined(DEBUG) && DEBUG
+            int fourCC = CFSwapInt32HostToBig(result);
+            NSLog(@"%s:%d: %s result %d %08X %4.4s\n", file, line, operation, (int)result, (int)result, (char*)&fourCC);
+        #endif
         return NO;
     }
     return YES;
 }
 
-@implementation AEAUSamplerChannel
+@implementation VEAEAUSampler
 
 @synthesize aupreset = _aupreset;
 @synthesize outputIsSilence = _outputIsSilence;
 
-- (id)initWithFileURL:(NSURL*)aupresetFileURL
-      audioController:(AEAudioController*)audioController
-                error:(NSError**)error {
+- (instancetype)initWithFileURL:(NSURL*)aupresetFileURL
+                audioController:(AEAudioController*)audioController
+                          error:(NSError**)error {
     return [self initWithFileURL:aupresetFileURL audioController:audioController preInitializeBlock:NULL error:error];
 }
 
-- (id)initWithFileURL:(NSURL*)aupresetFileURL
-      audioController:(AEAudioController*)audioController
-   preInitializeBlock:(void(^)(AudioUnit audioUnit))block
-                error:(NSError**)error {
+- (instancetype)initWithFileURL:(NSURL*)aupresetFileURL
+                audioController:(AEAudioController*)audioController
+             preInitializeBlock:(void(^)(AudioUnit audioUnit))block
+                          error:(NSError**)error {
     return [self initWithDictionary:[NSMutableDictionary dictionaryWithContentsOfURL:aupresetFileURL] audioController:audioController preInitializeBlock:block error:error];
 }
 
@@ -146,7 +149,7 @@ static inline BOOL _checkResult(OSStatus result, const char *operation, const ch
     return _node;
 }
 
-static OSStatus renderCallback(__unsafe_unretained AEAUSamplerChannel *THIS,
+static OSStatus renderCallback(__unsafe_unretained VEAEAUSampler *THIS,
                                __unsafe_unretained AEAudioController *audioController,
                                const AudioTimeStamp     *time,
                                UInt32                    frames,
@@ -168,6 +171,44 @@ static OSStatus renderCallback(__unsafe_unretained AEAUSamplerChannel *THIS,
     _audioUnit = NULL;
     _audioGraph = _audioController.audioGraph;
     [self setup:nil error:NULL];
+}
+
+
+
+#pragma mark - Declared Functions
+
+- (void)startNote:(uint8_t)note withVelocity:(uint8_t)velocity {
+    midiNoteOn(_audioUnit, note, velocity);
+}
+
+- (void)stopNote:(uint8_t)note {
+    midiNoteOff(_audioUnit, note);
+}
+
+- (void)sendController:(uint8_t)controller withValue:(uint8_t)value {
+    midiSendController(_audioUnit, controller, value);
+}
+
+- (void)sendPitchBend:(uint16_t)bendValue {
+    midiSendPitchBend(_audioUnit, bendValue);
+}
+
+- (void)allNotesOff {
+    midiAllNotesOff(_audioUnit);
+}
+
+- (void)allSoundOff {
+    midiAllSoundOff(_audioUnit);
+}
+
+- (void)resetAllControllers {
+    midiResetAllControllers(_audioUnit);
+}
+
+- (void)panic {
+    midiAllNotesOff(_audioUnit);
+    midiAllSoundOff(_audioUnit);
+    midiResetAllControllers(_audioUnit);
 }
 
 @end

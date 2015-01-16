@@ -1,5 +1,5 @@
 //
-//  VEAEGameSound.h
+//  AEGameSoundChannel.h
 //  TheAmazingAudioEngine
 //
 //  This file is based on "AEAudioUnitChannel.h" which was created by Michael
@@ -32,7 +32,7 @@ extern "C" {
     
 #import <Foundation/Foundation.h>
 #import "TheAmazingAudioEngine.h"
-#import "VEAEAUSampler.h"
+#import "AEAUSamplerChannel.h"
 #import <mach/mach_time.h> // for our timing/param modulation functions
     
 /*!
@@ -43,7 +43,7 @@ extern "C" {
  *  and the sampler audio unit will be initialised, ready for use.
  *
  */
-@interface VEAEGameSound : VEAEAUSampler <AEAudioTimingReceiver>
+@interface AEGameSoundChannel : AEAUSamplerChannel
 
 /*!
  * Create a new Audio Unit channel
@@ -56,11 +56,11 @@ extern "C" {
  *              should be initialized at
  * @return The initialised channel
  */
-- (instancetype)initWithFileURL:(NSURL*)fileURL
-                audioController:(AEAudioController*)audioController
-                     shouldLoop:(BOOL)shouldLoop
-                          cents:(int)cents
-                          error:(NSError**)error;
+- (id)initWithFileURL:(NSURL*)fileURL
+      audioController:(AEAudioController*)audioController
+           shouldLoop:(BOOL)shouldLoop
+                cents:(int)cents
+                error:(NSError**)error;
 
 /*!
  * Create a new Audio Unit channel
@@ -75,12 +75,13 @@ extern "C" {
  * @param error On output, if not NULL, will point to an error if a problem occurred
  * @return The initialised channel
  */
-- (instancetype)initWithFileURL:(NSURL*)fileURL
-                audioController:(AEAudioController*)audioController
-             preInitializeBlock:(void(^)(AudioUnit audioUnit))block
-                     shouldLoop:(BOOL)shouldLoop
-                          cents:(int)cents
-                          error:(NSError**)error;
+- (id)initWithFileURL:(NSURL*)fileURL
+      audioController:(AEAudioController*)audioController
+   preInitializeBlock:(void(^)(AudioUnit audioUnit))block
+           shouldLoop:(BOOL)shouldLoop
+                cents:(int)cents
+                error:(NSError**)error;
+
 
 /*!
  * Original audio file URL
@@ -93,10 +94,7 @@ extern "C" {
 @property (nonatomic, readonly) BOOL loop;
 
 /*!
- * AudioUnit volume. Setting this value will stop any modulation. This volume
- * setting affects all playing "sounds" (notes) in this object - it is a "global"
- * volume in that sense.  This is the volume that is "modulated" if you call the
- * `auPanTo:duration:` method on this object.
+ * AudioUnit volume. Setting this value will stop any modulation.
  *
  * Range: 0.0 to 1.0
  */
@@ -119,16 +117,6 @@ extern "C" {
 @property (nonatomic, readwrite) float auPitchBend;
 
 /*!
- * Plays the sound at the specified "volume". The value sent here is translated
- * internally to a MIDI note velocity between 0 to 127. Specifying a volume here 
- * lets multiple sounds play back at different volumes from this one game sound
- * instance.
- *
- * Range: 0.0 to 1.0
- */
-- (void)play:(float)volume;
-
-/*!
  * Modulate the AudioUnit pan to the new setting; note that this is not the
  * same as the channel or track pan, rather this is a direct modulation
  * of the AUSampler audio unit pan parameter.  To stop modulation, set the
@@ -136,37 +124,8 @@ extern "C" {
  * is called.
  */
 - (void)auPanTo:(float)auPanTo duration:(float)duration;
-
-/*!
- * Modulate the pitch of all playing sounds in this instance.
- */
 - (void)auPitchBendTo:(float)auPitchBendTo duration:(float)duration;
-
-/*!
- * Modulate the overall volume of all playing sounds in this instance.
- */
 - (void)auVolumeTo:(float)auVolumeTo duration:(float)duration;
-
-/*!
- * Modulate the overall volume of all playing sounds in this instance and optionally
- * set the channelIsPlaying parameter to stop after the modulation finishes. This
- * primarily exists so that we can use the removeSelf function to gracefully stop
- * sound effects (e.g. during a scene transition).
- */
-- (void)auVolumeTo:(float)auVolumeTo duration:(float)duration stopAfter:(BOOL)stopAfter;
-
-/*!
- * Remove this channel from the audio controller.  If the audio is still playing
- * (outputIsSilence==NO) and a positive fadeOutDuration is provided, then a call
- * to auVolumeTo:duration:stopAfter: will be made first, after which this channel
- * will be removed.
- */
-- (void)removeSelf:(float)fadeOutDuration;
-
-/*!
- * Returns true if any of the auPanTo/auPitchBendTo/auVolumeTo type functions are active.
- */
-- (BOOL)isModulating;
 
 @end
     

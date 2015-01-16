@@ -1,5 +1,5 @@
 //
-//  AEAUAudioFilePlayerChannel.m
+//  VEAEGameTrack.m
 //  TheAmazingAudioEngine
 //
 //  This file is based on "AEAudioUnitChannel.m" which was created by Michael
@@ -26,19 +26,21 @@
 //  3. This notice may not be removed or altered from any source distribution.
 //
 
-#import "AEAUAudioFilePlayerChannel.h"
+#import "VEAEGameTrack.h"
 
 #define checkResult(result,operation) (_checkResult((result),(operation),strrchr(__FILE__, '/')+1,__LINE__))
 static inline BOOL _checkResult(OSStatus result, const char *operation, const char* file, int line) {
     if ( result != noErr ) {
-        int fourCC = CFSwapInt32HostToBig(result);
-        NSLog(@"%s:%d: %s result %d %08X %4.4s\n", file, line, operation, (int)result, (int)result, (char*)&fourCC);
+        #if defined(DEBUG) && DEBUG
+            int fourCC = CFSwapInt32HostToBig(result);
+            NSLog(@"%s:%d: %s result %d %08X %4.4s\n", file, line, operation, (int)result, (int)result, (char*)&fourCC);
+        #endif
         return NO;
     }
     return YES;
 }
 
-@interface AEAUAudioFilePlayerChannel () {
+@interface VEAEGameTrack () {
     AEAudioController *_audioController;
     AudioComponentDescription _componentDescription;
     AUNode _node;
@@ -55,7 +57,7 @@ static inline BOOL _checkResult(OSStatus result, const char *operation, const ch
 }
 @end
 
-@implementation AEAUAudioFilePlayerChannel
+@implementation VEAEGameTrack
 
 @synthesize url=_fileURL;
 @synthesize currentTime=_currentTime;
@@ -66,18 +68,18 @@ static inline BOOL _checkResult(OSStatus result, const char *operation, const ch
 @synthesize removeUponFinish = _removeUponFinish;
 @synthesize outputIsSilence = _outputIsSilence;
 
-- (id)initWithFileURL:(NSURL*)fileURL
-      audioController:(AEAudioController*)audioController
-           shouldLoop:(BOOL)shouldLoop
-                error:(NSError**)error {
+- (instancetype)initWithFileURL:(NSURL*)fileURL
+                audioController:(AEAudioController*)audioController
+                     shouldLoop:(BOOL)shouldLoop
+                          error:(NSError**)error {
     return [self initWithFileURL:fileURL audioController:audioController preInitializeBlock:NULL shouldLoop:shouldLoop error:error];
 }
 
-- (id)initWithFileURL:(NSURL*)fileURL
-      audioController:(AEAudioController*)audioController
-   preInitializeBlock:(void(^)(AudioUnit audioUnit))block
-           shouldLoop:(BOOL)shouldLoop
-                error:(NSError**)error {
+- (instancetype)initWithFileURL:(NSURL*)fileURL
+                audioController:(AEAudioController*)audioController
+             preInitializeBlock:(void(^)(AudioUnit audioUnit))block
+                     shouldLoop:(BOOL)shouldLoop
+                          error:(NSError**)error {
     
     if(!(fileURL)) return nil;
     
@@ -169,7 +171,7 @@ static inline BOOL _checkResult(OSStatus result, const char *operation, const ch
     memset (&rgn.mTimeStamp, 0, sizeof(rgn.mTimeStamp));
     rgn.mTimeStamp.mFlags = kAudioTimeStampSampleTimeValid;
     rgn.mTimeStamp.mSampleTime = 0;
-    rgn.mCompletionProc = NULL;
+    rgn.mCompletionProc = NULL; // using this callback results in a very early callback (at start of last playback buffer)
     rgn.mCompletionProcUserData = NULL;
     rgn.mAudioFile = _fileId;
     rgn.mLoopCount = _loop ? UINT32_MAX : 0;
@@ -245,8 +247,9 @@ static inline BOOL _checkResult(OSStatus result, const char *operation, const ch
 }
 
 static void notifyPlaybackStopped(AEAudioController *audioController, void *userInfo, int length) {
-    AEAUAudioFilePlayerChannel *THIS = (__bridge AEAUAudioFilePlayerChannel*)*(void**)userInfo;
-    THIS->_channelIsPlaying = NO;
+    VEAEGameTrack *THIS = (__bridge VEAEGameTrack*)*(void**)userInfo;
+//    NSLog(@"%s:%.2f, isPlaying: %i",__PRETTY_FUNCTION__, THIS->_currentTime, THIS->_channelIsPlaying);
+    [THIS setChannelIsPlaying:NO]; // uses KVO, so send message
     THIS->_outputIsSilence = YES;
     
     if ( THIS->_removeUponFinish ) {
@@ -260,15 +263,16 @@ static void notifyPlaybackStopped(AEAudioController *audioController, void *user
 }
 
 static void notifyStartLoopBlock(AEAudioController *audioController, void *userInfo, int length) {
-    AEAUAudioFilePlayerChannel *THIS = (__bridge AEAUAudioFilePlayerChannel*)*(void**)userInfo;
-    THIS->_channelIsPlaying = YES;
+    VEAEGameTrack *THIS = (__bridge VEAEGameTrack*)*(void**)userInfo;
+//    NSLog(@"%s:%.2f",__PRETTY_FUNCTION__, THIS->_currentTime);
+    [THIS setChannelIsPlaying:YES]; // in case of KVO send a message
     
     if ( THIS->_startLoopBlock ) {
         THIS->_startLoopBlock();
     }
 }
 
-static OSStatus renderCallback(__unsafe_unretained AEAUAudioFilePlayerChannel *THIS,
+static OSStatus renderCallback(__unsafe_unretained VEAEGameTrack *THIS,
                                __unsafe_unretained AEAudioController *audioController,
                                const AudioTimeStamp     *time,
                                UInt32                    frames,
@@ -284,30 +288,23 @@ static OSStatus renderCallback(__unsafe_unretained AEAUAudioFilePlayerChannel *T
     AudioTimeStamp ts;
     UInt32 size = sizeof(ts);
     AudioUnitGetProperty(THIS->_audioUnit, kAudioUnitProperty_CurrentPlayTime, kAudioUnitScope_Global, 0, &ts, &size);
+    UInt32 currentNumLoops = floor(ts.mSampleTime / THIS->_mFramesToPlay);
+    THIS->_currentTime = (ts.mSampleTime - ((float)currentNumLoops * THIS->_mFramesToPlay)) / THIS->_outSampleRate;
     
     // Check for callbacks to be done
     if(THIS->_loop) {
-        
-        // Looping callback
-        UInt32 currentNumLoops = floor(ts.mSampleTime / THIS->_mFramesToPlay);
-        
-        // Update current time relative to the start of the file (instead of overall playback time)
-        THIS->_currentTime = (ts.mSampleTime - ((float)currentNumLoops * THIS->_mFramesToPlay)) / THIS->_outSampleRate;
-        
-        // If we are on a new loop number, trigger the startLoop callback
-        if(currentNumLoops > THIS->_numLoopsCompleted) {
-            THIS->_numLoopsCompleted++;
-            AEAudioControllerSendAsynchronousMessageToMainThread(audioController, notifyStartLoopBlock, &THIS, sizeof(AEAUAudioFilePlayerChannel*));
+        if(THIS->_startLoopBlock != NULL) {
+            // If we are on a new loop number, trigger the startLoop callback
+            if(currentNumLoops > THIS->_numLoopsCompleted) {
+                THIS->_numLoopsCompleted++;
+                AEAudioControllerSendAsynchronousMessageToMainThread(audioController, notifyStartLoopBlock, &THIS, sizeof(VEAEGameTrack*));
+            }
         }
-    } else {
-        
-        // Update current time
-        THIS->_currentTime = ts.mSampleTime / THIS->_outSampleRate;
-        
+    } else if(THIS->_completionBlock != NULL) {
         // If we're in the last renderCallback, trigger the completion callback
         UInt32 remainderPlusFramesThisRender = ((UInt32)ts.mSampleTime % THIS->_mFramesToPlay) + frames;
         if(remainderPlusFramesThisRender >= THIS->_mFramesToPlay) {
-            AEAudioControllerSendAsynchronousMessageToMainThread(audioController, notifyPlaybackStopped, &THIS, sizeof(AEAUAudioFilePlayerChannel*));
+            AEAudioControllerSendAsynchronousMessageToMainThread(audioController, notifyPlaybackStopped, &THIS, sizeof(VEAEGameTrack*));
         }
     }
     

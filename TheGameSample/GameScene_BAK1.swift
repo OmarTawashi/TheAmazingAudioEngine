@@ -23,10 +23,10 @@ func randomFloat() -> Float {
 class GameScene: SKScene {
     
     var _audCtrlr : AEAudioController = audInit(nil)
-    
+//    var _bgMusic  : AEAudioUnitFilePlayer! // looping doesn't work
     var _bgMusic  : AEAudioFilePlayer! // takes more memory... keep your background sound files short, and perhaps use lower bitrate (e.g. 22050)
     
-    var _samplerChannel : VEAEGameSound!
+    var _samplerChannel : AEGameSoundChannel!
     
     var btnBgSnd, btnEffects : SKLabelNode!
     
@@ -52,14 +52,10 @@ class GameScene: SKScene {
         addChild(btnEffects)
         
         // Preload audio
-        _samplerChannel = audLoadEffect(NSBundle.mainBundle().URLForResource("effect1", withExtension: "caf"), 1.0, true)
+        _samplerChannel = audLoadEffect(NSBundle.mainBundle().pathForResource("effect1", ofType: "caf"), 1.0, 0.0, true)
         
         // TEST
 //        let ambience = audLoadAmbience(NSBundle.mainBundle().pathForResource("HiQualityMix96.7", ofType: "wav"), 1.0, 0.0, 0)
-        var err : NSError?
-        let ambience = VEAEGameTrack(fileURL: NSBundle.mainBundle().URLForResource("effect1", withExtension: "caf"), audioController: audController(), shouldLoop:false, error:&err)
-        audController().addChannels([ambience])
-        runAction(SKAction.sequence([SKAction.waitForDuration(1.0), SKAction.runBlock({ ambience.channelIsPlaying = false }), SKAction.waitForDuration(1.0), SKAction.runBlock({ ambience.channelIsPlaying = true }), SKAction.waitForDuration(1.0), SKAction.runBlock({ ambience.channelIsPlaying = false }), SKAction.waitForDuration(1.0), SKAction.runBlock({ ambience.channelIsPlaying = true })]))
         
         // on iOS let's let the user know to use headphones to be able to hear the panning effects
 //        #if os(iOS)
@@ -104,6 +100,12 @@ class GameScene: SKScene {
         }
     }
     
+    
+//    func playSound( filename : String ) {
+//        audPlay(NSBundle.mainBundle().pathForResource(filename, ofType: "caf"))
+//    }
+    
+    
     /// EVENTS
     func uiEventStart(p : CGPoint) {
         
@@ -114,41 +116,55 @@ class GameScene: SKScene {
                 runAction(SKAction.runBlock({
                     self._samplerChannel = nil
                     self._audCtrlr.removeChannels(self._audCtrlr.channels())
-                    self._samplerChannel = audLoadEffect(NSBundle.mainBundle().URLForResource("effect1", withExtension: "caf"), 1.0, true)
+                    self._samplerChannel = audLoadEffect(NSBundle.mainBundle().pathForResource("effect1", ofType: "caf"), 1.0, -1.0, false)
                 }))
             }
         } else if btnEffects.containsPoint(p) {
-            _doBtnBoing(btnEffects)
-            runAction(SKAction.runBlock({
-                
-                // Play it!
-                self._samplerChannel.play(1.0)
-                
-                // Modulate the pan - left to right
-                if(self._samplerChannel.auPan > -0.9) {
-                    self._samplerChannel.auPanTo(-1.0, duration:0.25);
-                    self.runAction(SKAction.sequence([SKAction.waitForDuration(0.25),SKAction.runBlock({
-                        self._samplerChannel.auPanTo(1.0, duration:0.75);
-                    })]))
-                } else {
-                    self._samplerChannel.auPanTo(1.0, duration:1.0);
-                }
-                
-                // Modulate the volume - silent to full volume
-                self._samplerChannel.auVolume = 0;
-                self._samplerChannel.auVolumeTo(1.0, duration:1.5)
-                
-                // modulate the pitch -1octaves to at-pitch
-                self._samplerChannel.auPitchBendTo(1.1, duration:1.0)
-                
-                
-                
-                // After 1 second pan back to center
-                self.runAction(SKAction.sequence([SKAction.waitForDuration(1.0), SKAction.runBlock({
-                    self._samplerChannel.auPitchBendTo(1.0, duration:0.25)
-                    self._samplerChannel.auPanTo(-0.2, duration:2.0);
-                })]))
-            }))
+//            if btnEffects.yScale > 0.99 && btnEffects.yScale < 1.01 { // prevents fast repeated taps
+                _doBtnBoing(btnEffects)
+                runAction(SKAction.runBlock({
+                    
+                    // Play it!
+//                    audPlayEffect(self._samplerChannel, 1.0)
+                    self._samplerChannel.play(1.0)
+//
+//                    // Modulate the pan - left to right
+////                    audRampEffectPan(self._samplerChannel, -1.0, 1.0, 1.0)
+//                    if(self._samplerChannel.auPan > -0.9) {
+//                        self._samplerChannel.auPanTo(-1.0, duration:0.25);
+//                        self.runAction(SKAction.sequence([SKAction.waitForDuration(0.25),SKAction.runBlock({
+//                            self._samplerChannel.auPanTo(1.0, duration:0.75);
+//                        })]))
+//                    } else {
+//                        self._samplerChannel.auPanTo(1.0, duration:1.0);
+//                    }
+//                    
+//                    // Modulate the volume - silent to full volume
+////                    audRampEffectVolume(self._samplerChannel, 0.0, 1.0, 1.5)
+//                    self._samplerChannel.auVolume = 0;
+//                    self._samplerChannel.auVolumeTo(1.0, duration:1.5)
+//                    
+//                    // modulate the pitch -1octaves to at-pitch
+////                    audRampEffectPitch(self._samplerChannel, 0.9, 1.05, 1.0)
+//                    self._samplerChannel.auPitchBendTo(1.1, duration:1.0)
+//                    
+//                    
+//                    
+//                    // After 1 second pan back to center
+//                    self.runAction(SKAction.sequence([SKAction.waitForDuration(1.0), SKAction.runBlock({
+//                        // ... Modulate the pitch back to "on pitch"
+////                        audRampEffectPitch(self._samplerChannel, 1.05, 1.00, 0.25)
+//                        self._samplerChannel.auPitchBendTo(1.0, duration:0.25)
+//                        
+//                        // ... Modulate the pan - from right back to center
+////                        audRampEffectPan(self._samplerChannel, 1.0, -0.2, 2.0)
+//                        self._samplerChannel.auPanTo(-0.2, duration:2.0);
+//                        
+//                    })]))
+                }))
+                // The let a= works around Swift bug with a C func that returns something.
+//                runAction(SKAction.runBlock({ let a=audPlay(NSBundle.mainBundle().pathForResource(filename, ofType: "caf"))?; }))
+//            }
         } else {
             
             // Just some sample code from original Xcode generated project:

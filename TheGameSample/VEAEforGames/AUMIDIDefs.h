@@ -53,7 +53,8 @@ enum
 	kMidiMessage_PitchWheel 		= 0xE0,
 	kMidiMessage_SysEx				= 0xF0,
 	kMidiMessage_SysEx_End			= 0xF7,
-	kMidiMessage_MetaEvent			= 0xFF
+	kMidiMessage_MetaEvent			= 0xFF,
+    kMidiMessage_PitchBend = kMidiMessage_PitchWheel // I (not Apple) Added this line because most folks & code samples seem to prefer kMidiMessage_PitchBend over "...Wheel"
 };
 #endif
 
