@@ -1337,7 +1337,6 @@ NSTimeInterval AEConvertFramesToSeconds(AEAudioController *audioController, long
  */
 @property (nonatomic, readonly) AUGraph audioGraph;
 
-#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
 #pragma mark - C access to properties
 
 /*!
@@ -1371,7 +1370,6 @@ NSTimeInterval AEAudioControllerInputLatency(AEAudioController *controller);
  * @returns The currently-reported hardware output latency
  */
 NSTimeInterval AEAudioControllerOutputLatency(AEAudioController *controller);
-#endif
 
 @end
 

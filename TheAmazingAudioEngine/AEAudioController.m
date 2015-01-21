@@ -1896,16 +1896,13 @@ NSTimeInterval AEConvertFramesToSeconds(__unsafe_unretained AEAudioController *T
 }
 
 -(NSTimeInterval)inputLatency {
-#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     return AEAudioControllerInputLatency(self);
-#else
-    return 0.0;
-#endif
 }
 
-
-#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
 NSTimeInterval AEAudioControllerInputLatency(__unsafe_unretained AEAudioController *THIS) {
+#ifdef __MAC_OS_X_VERSION_MAX_ALLOWED
+    return 0.0;
+#else
     if ( !THIS->_inputEnabled ) return 0.0;
     
     if ( (THIS->_audiobusReceiverPort && ABReceiverPortIsConnected(THIS->_audiobusReceiverPort))
@@ -1917,6 +1914,7 @@ NSTimeInterval AEAudioControllerInputLatency(__unsafe_unretained AEAudioControll
         __cachedInputLatency = [((AVAudioSession*)[AVAudioSession sharedInstance]) inputLatency];
     }
     return __cachedInputLatency;
+#endif
 }
 
 -(NSTimeInterval)outputLatency {
@@ -1924,6 +1922,9 @@ NSTimeInterval AEAudioControllerInputLatency(__unsafe_unretained AEAudioControll
 }
 
 NSTimeInterval AEAudioControllerOutputLatency(__unsafe_unretained AEAudioController *THIS) {
+#ifdef __MAC_OS_X_VERSION_MAX_ALLOWED
+    return 0.0;
+#else
     if ( THIS->_renderThread == pthread_self() ) {
         AEChannelRef channelBeingRendered = THIS->_channelBeingRendered;
         if ( !channelBeingRendered ) channelBeingRendered = THIS->_topChannel;
@@ -1939,8 +1940,8 @@ NSTimeInterval AEAudioControllerOutputLatency(__unsafe_unretained AEAudioControl
         __cachedOutputLatency = [((AVAudioSession*)[AVAudioSession sharedInstance]) outputLatency];
     }
     return __cachedOutputLatency;
-}
 #endif
+}
 
 -(void)setVoiceProcessingEnabled:(BOOL)voiceProcessingEnabled {
     if ( _voiceProcessingEnabled == voiceProcessingEnabled ) return;
@@ -2504,9 +2505,10 @@ static void interAppConnectedChangeCallback(void *inRefCon, AudioUnit inUnit, Au
     }
 }
 
-#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
 - (void)configureAudioUnit {
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     AVAudioSession *audioSession = [AVAudioSession sharedInstance];
+#endif
     
     if ( _inputEnabled ) {
         // Enable input
@@ -2534,31 +2536,40 @@ static void interAppConnectedChangeCallback(void *inRefCon, AudioUnit inUnit, Au
         checkResult(result, "AudioUnitSetProperty(kAUVoiceIOProperty_VoiceProcessingQuality)");
         
         if ( _preferredBufferDuration ) {
+#ifdef __MAC_OS_X_VERSION_MAX_ALLOWED
+            NSLog(@"TAAE: Couldn't set preferred IO buffer duration: Not implemented for Mac.");
+#else
             // If we're using voice processing, clamp the buffer duration
             Float32 preferredBufferSize = MAX(kMaxBufferDurationWithVPIO, _preferredBufferDuration);
             NSError *error = nil;
             if ( ![audioSession setPreferredIOBufferDuration:preferredBufferSize error:&error] ) {
                 NSLog(@"TAAE: Couldn't set preferred IO buffer duration: %@", error);
             }
+#endif
         }
     } else {
         if ( _preferredBufferDuration ) {
+#ifdef __MAC_OS_X_VERSION_MAX_ALLOWED
+            NSLog(@"TAAE: Couldn't set preferred IO buffer duration: Not implemented for Mac.");
+#else
             // Set the buffer duration
             NSError *error = nil;
             if ( ![audioSession setPreferredIOBufferDuration:_preferredBufferDuration error:&error] ) {
                 NSLog(@"TAAE: Couldn't set preferred IO buffer duration: %@", error);
             }
+#endif
         }
     }
     
     // Set the audio unit to handle up to 4096 frames per slice to keep rendering during screen lock
     checkResult(AudioUnitSetProperty(_ioAudioUnit, kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitScope_Global, 0, &kMaxFramesPerSlice, sizeof(kMaxFramesPerSlice)),
                 "AudioUnitSetProperty(kAudioUnitProperty_MaximumFramesPerSlice)");
-
+    
+#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
     checkResult(AudioUnitAddPropertyListener(_ioAudioUnit, kAudioUnitProperty_IsInterAppConnected, interAppConnectedChangeCallback, (__bridge void*)self),
                 "AudioUnitAddPropertyListener(kAudioUnitProperty_IsInterAppConnected)");
-}
 #endif
+}
 
 - (void)teardown {
     checkResult(AUGraphClose(_audioGraph), "AUGraphClose");
@@ -2643,7 +2654,11 @@ static void interAppConnectedChangeCallback(void *inRefCon, AudioUnit inUnit, Au
     BOOL hardwareInputAvailable  = inputAvailable;
     int numberOfInputChannels = _audioDescription.mChannelsPerFrame;
     BOOL usingAudiobus           = NO;
-#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
+#ifdef __MAC_OS_X_VERSION_MAX_ALLOWED
+    // Mac
+    NSLog(@"TAAE: %s audio input is not implemented for Mac yet.", __PRETTY_FUNCTION__);
+#else
+    // iOS
     AVAudioSession *audioSession = [AVAudioSession sharedInstance];
     inputAvailable          = audioSession.inputAvailable;
     hardwareInputAvailable  = inputAvailable;
