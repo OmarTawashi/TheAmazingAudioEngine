@@ -45,6 +45,7 @@ double _hTime2nsFactor = 1.0; // we'll get the actual value of this when this cl
             isLooping=_isLooping;
 
 
+
 #pragma mark - Initialization
 
 + (void)load {
@@ -67,6 +68,7 @@ double _hTime2nsFactor = 1.0; // we'll get the actual value of this when this cl
         _dspGain = 1.0f; // 100% volume
         _dspPan = 1.0f;  // center
         _outputIsSilence = YES; // nothing is happenning yet
+        _channelIsMuted = NO;
         _channelIsPlaying = NO; // don't play automatically when added
         _isLooping = NO; // default is not to loop
         memset(&_modGain, 0, sizeof(_aud_modulate_param_t)); // set initial values to 0
@@ -76,6 +78,7 @@ double _hTime2nsFactor = 1.0; // we'll get the actual value of this when this cl
     }
     return self;
 }
+
 
 
 #pragma mark - Declared Properties
@@ -131,9 +134,11 @@ double _hTime2nsFactor = 1.0; // we'll get the actual value of this when this cl
         if(completion) {
             _modGainCompletionBlock = [completion copy];
         }
+        // The "host time" supposedy stops when the machine stops or sleeps, which in our case is good, as our
+        // modulation should wait then too
         _modGain.hostStartTime = mach_absolute_time();
         _modGain.hostDuration = _audHostTicksFromSeconds(seconds);
-        _modGain.hostEndTime = _modGain.hostStartTime + _modGain.hostDuration; // set future time to be finished by - this "host time" supposedy stops when the machine stops or sleeps, which in our case is good, as our modulation should wait then too
+        _modGain.hostEndTime = _modGain.hostStartTime + _modGain.hostDuration; // set future time to be finished by
         
         // Start modulating
         _modGain.active = YES;
@@ -159,9 +164,11 @@ double _hTime2nsFactor = 1.0; // we'll get the actual value of this when this cl
         if(completion) {
             _modPanCompletionBlock = [completion copy];
         }
+        // The "host time" supposedy stops when the machine stops or sleeps, which in our case is good, as our
+        // modulation should wait then too
         _modPan.hostStartTime = mach_absolute_time();
         _modPan.hostDuration = _audHostTicksFromSeconds(seconds);
-        _modPan.hostEndTime = _modPan.hostStartTime + _modPan.hostDuration; // set future time to be finished by - this "host time" supposedy stops when the machine stops or sleeps, which in our case is good, as our modulation should wait then too
+        _modPan.hostEndTime = _modPan.hostStartTime + _modPan.hostDuration; // set future time to be finished by
         
         // Start modulating
         _modPan.active = YES;
@@ -195,7 +202,8 @@ double _hTime2nsFactor = 1.0; // we'll get the actual value of this when this cl
 }
 
 
-#pragma mark - Render Callback
+
+#pragma mark - Render Callback & Related Internal Notifications
 
 static void _notifyModGainStopped(AEAudioController *audioController, void *userInfo, int length) {
     VEAEAbstractChannel *THIS = (__bridge VEAEAbstractChannel*)*(void**)userInfo;
@@ -210,10 +218,10 @@ static void _notifyModPanStopped(AEAudioController *audioController, void *userI
 
 
 static OSStatus _renderCallback(__unsafe_unretained VEAEAbstractChannel *THIS,
-                               __unsafe_unretained AEAudioController *audioController,
-                               const AudioTimeStamp *time,
-                               UInt32                frameCount,
-                               AudioBufferList      *audio) {
+                                __unsafe_unretained AEAudioController   *audioController,
+                                const AudioTimeStamp                    *time,
+                                UInt32                                   frameCount,
+                                AudioBufferList                         *audio) {
     
     // Render the audio
     AudioUnitRenderActionFlags flags = 0;
@@ -224,9 +232,13 @@ static OSStatus _renderCallback(__unsafe_unretained VEAEAbstractChannel *THIS,
             if(time->mHostTime >= THIS->_modGain.hostEndTime) {
                 THIS->_modGain.active = NO;
                 THIS->_dspGain = THIS->_modGain.endValue; // set to exact end value
-                AEAudioControllerSendAsynchronousMessageToMainThread(THIS->_audCtrlr, _notifyModGainStopped, &THIS, sizeof(&THIS));
+                AEAudioControllerSendAsynchronousMessageToMainThread(THIS->_audCtrlr,
+                                                                     _notifyModGainStopped,
+                                                                     &THIS,
+                                                                     sizeof(&THIS));
             } else {
-                float percComplete = ((float)(time->mHostTime - THIS->_modGain.hostStartTime)) / THIS->_modGain.hostDuration;
+                float percComplete = ((float)(time->mHostTime - THIS->_modGain.hostStartTime))
+                                     / THIS->_modGain.hostDuration;
                 THIS->_dspGain = THIS->_modGain.startValue + (percComplete * THIS->_modGain.valueDiff);
             }
         }
@@ -239,10 +251,13 @@ static OSStatus _renderCallback(__unsafe_unretained VEAEAbstractChannel *THIS,
             if(time->mHostTime >= THIS->_modPan.hostEndTime) {
                 THIS->_modPan.active = NO;
                 THIS->_dspPan = THIS->_modPan.endValue; // set to exact end value
-                AEAudioControllerSendAsynchronousMessageToMainThread(THIS->_audCtrlr, _notifyModPanStopped, &THIS, sizeof(&THIS));
+                AEAudioControllerSendAsynchronousMessageToMainThread(THIS->_audCtrlr,
+                                                                     _notifyModPanStopped,
+                                                                     &THIS,
+                                                                     sizeof(&THIS));
             } else {
-                float percComplete = ((float)(time->mHostTime - THIS->_modPan.hostStartTime)) / THIS->_modPan.hostDuration;
-                THIS->_dspPan = THIS->_modPan.startValue + (percComplete * THIS->_modPan.valueDiff);
+                float percCmplt = ((float)(time->mHostTime - THIS->_modPan.hostStartTime)) / THIS->_modPan.hostDuration;
+                THIS->_dspPan = THIS->_modPan.startValue + (percCmplt * THIS->_modPan.valueDiff);
             }
         }
         

@@ -37,8 +37,8 @@ EXTERN_C_BEGIN
 
 
 
+//---------------------------------------------------------------------------------------------------------------------
 #pragma mark - Macros
-
 
 #if defined(DEBUG) && (DEBUG)
     #define VEAE_IS_DEBUG 1
@@ -53,14 +53,14 @@ EXTERN_C_BEGIN
 
 
 
+//---------------------------------------------------------------------------------------------------------------------
 #pragma mark - C Functions
 
-
-/// Log available AudioUnit parameters in the kAudioUnitScope_Global to the console.
+/// If VEAE_IS_DEBUG then log available AudioUnit parameters in the kAudioUnitScope_Global to the console.
 void audLogAUParameters(AudioUnit au);
 
 
-/// Log available AudioUnit parameters in the specified scope (e.g. kAudioUnitScope_Global) to the console.
+/// If VEAE_IS_DEBUG then log available AudioUnit parameters in specified scope (e.g. kAudioUnitScope_Global).
 void audLogAUParametersInScope(AudioUnit au,
                                int auScope);
 
@@ -86,8 +86,8 @@ AEAudioUnitFilter* audNewAUNewTimePitchFilter(AEAudioController *audioController
 
 
 
+//---------------------------------------------------------------------------------------------------------------------
 #pragma mark - Static Inline C Functions
-
 
 /// You can use the audCheck(result, operation) macro instead of calling this function directly.
 static inline BOOL _audCheckOSStatus(OSStatus result, const char *operation, const char *file, int line) {
@@ -134,6 +134,13 @@ static inline void audDSP_pan(AudioBufferList *bufferList,
         vDSP_vsmul((float*)bufferList->mBuffers[bufferIndex].mData, 1, &gain,
                    (float*)bufferList->mBuffers[bufferIndex].mData, 1, frameCount);
     }
+}
+
+static inline NSError* audNSError(const OSStatus result,
+                                  const NSString *localizedDescription) {
+    return [NSError errorWithDomain:NSOSStatusErrorDomain
+                               code:result
+                           userInfo:@{NSLocalizedDescriptionKey:localizedDescription}];
 }
 
 

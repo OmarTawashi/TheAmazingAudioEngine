@@ -34,6 +34,7 @@ EXTERN_C_BEGIN
 @class VEAEAbstractChannel;
 
 
+
 /// This is intended to be used internally to VEAEAbstractChannel subclasses and is used by _audHostTicksFromSeconds()
 extern double _hTime2nsFactor;
 

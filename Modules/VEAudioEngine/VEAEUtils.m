@@ -9,11 +9,13 @@
 #import "VEAEUtils.h"
 
 
+
 // These constants are for certain audio units as defined in AudioUnitParameters.h
 static int16_t const _kAUMinCents = -2400;
 static int16_t const _kAUMaxCents = -2400;
 static float const _kAUMinRate = 1.0f / 32.0f;
 static float const _kAUMaxRate = 32.0f;
+
 
 
 // Log available AudioUnit parameters in the kAudioUnitScope_Global to the console.
@@ -103,7 +105,7 @@ void audLogAUParametersInScope(AudioUnit au,
             if(p.flags & kAudioUnitParameterFlag_NonRealTime)
                 [flags appendString:@"\n        NonRealTime"];
             if(p.flags & kAudioUnitParameterFlag_CanRamp)
-                [flags appendString:@"\n        CanRamp"]; // <- AudioUnitScheduleParameters capable
+                [flags appendString:@"\n        CanRamp"]; // <- is AudioUnitScheduleParameters capable!
             if(p.flags & kAudioUnitParameterFlag_ExpertMode)
                 [flags appendString:@"\n        ExpertMode"];
             if(p.flags & kAudioUnitParameterFlag_HasCFNameString)
@@ -165,12 +167,12 @@ AEAudioUnitFilter* audNewAUVarispeedFilter(AEAudioController *audioController,
                                                                                   error:&err];
     if(filter) {
         // Set the pitch via cents
-        audCheck(AudioUnitSetParameter(filter.audioUnit,                            // inUnit : AudioUnit
-                                       kVarispeedParam_PlaybackCents,               // inID: AudioUnitParameterID
-                                       kAudioUnitScope_Global,                      // inScope: AudioUnitScope
-                                       0,                                           // inElement: AudioUnitElement
-                                       CLAMP(cents, _kAUMinCents, _kAUMaxCents),    // inValue: AudioUnitParameterValue
-                                       0),                                          // inBufferOffsetInFrames: UInt32
+        audCheck(AudioUnitSetParameter(filter.audioUnit,
+                                       kVarispeedParam_PlaybackCents,
+                                       kAudioUnitScope_Global,
+                                       0,
+                                       CLAMP(cents, _kAUMinCents, _kAUMaxCents),
+                                       0),
                  "AudioUnitSetParameter(kVarispeedParam_PlaybackCents)");
         return filter;
     } else {
@@ -188,35 +190,50 @@ AEAudioUnitFilter* audNewAUNewTimePitchFilter(AEAudioController *audioController
     AudioComponentDescription component = AEAudioComponentDescriptionMake(kAudioUnitManufacturer_Apple,
                                                                           kAudioUnitType_FormatConverter,
                                                                           kAudioUnitSubType_NewTimePitch);
-    
     NSError *err;
     AEAudioUnitFilter *filter = [[AEAudioUnitFilter alloc] initWithComponentDescription:component
                                                                         audioController:audioController
                                                                                   error:&err];
-    
     if(filter) {
-        
         // Rate
-        audCheck(AudioUnitSetParameter(filter.audioUnit,                        // inUnit : AudioUnit
-                                       kNewTimePitchParam_Rate,                 // inID: AudioUnitParameterID
-                                       kAudioUnitScope_Global,                  // inScope: AudioUnitScope
-                                       0,                                       // inElement: AudioUnitElement
-                                       CLAMP(rate, _kAUMinRate, _kAUMaxRate),   // inValue: AudioUnitParameterValue
-                                       0),                                      // inBufferOffsetInFrames: UInt32
-                 "AudioUnitSetParameter[kNewTimePitchParam_Rate] failed");
-        
+        audCheck(AudioUnitSetParameter(filter.audioUnit,
+                                       kNewTimePitchParam_Rate,
+                                       kAudioUnitScope_Global,
+                                       0,
+                                       CLAMP(rate, _kAUMinRate, _kAUMaxRate),
+                                       0),
+                 "AudioUnitSetParameter[kNewTimePitchParam_Rate]");
         // Pitch
-        audCheck(AudioUnitSetParameter(filter.audioUnit,                            // inUnit : AudioUnit
-                                       kNewTimePitchParam_Pitch,                    // inID: AudioUnitParameterID
-                                       kAudioUnitScope_Global,                      // inScope: AudioUnitScope
-                                       0,                                           // inElement: AudioUnitElement
-                                       CLAMP(cents, _kAUMinCents, _kAUMaxCents),    // inValue: AudioUnitParameterValue
-                                       0),                                          // inBufferOffsetInFrames: UInt32
-                 "AudioUnitSetParameter[kNewTimePitchParam_Pitch] failed");
-        
+        audCheck(AudioUnitSetParameter(filter.audioUnit,
+                                       kNewTimePitchParam_Pitch,
+                                       kAudioUnitScope_Global,
+                                       0,
+                                       CLAMP(cents, _kAUMinCents, _kAUMaxCents),
+                                       0),
+                 "AudioUnitSetParameter[kNewTimePitchParam_Pitch]");
         return filter;
     } else {
         VEAELog(@"%@",[err localizedDescription]);
         return nil;
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

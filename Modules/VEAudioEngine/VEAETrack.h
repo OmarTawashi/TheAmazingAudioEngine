@@ -36,7 +36,7 @@ EXTERN_C_BEGIN
 /// @param fileURL An URL pointing to the local file resource you wish to load.
 /// @param audioController The audio controller
 /// @param shouldLoop Whether to loop the audio file or not.
-/// @param error On output, if not NULL, will point to an error if a problem occurred
+/// @param error Optional - if provided and a problem occurs, this will point to an error object
 - (instancetype)initWithFileURL:(NSURL*)fileURL
                 audioController:(AEAudioController*)audioController
                      shouldLoop:(BOOL)shouldLoop
