@@ -873,7 +873,21 @@ static OSStatus topRenderNotifyCallback(void *inRefCon, AudioUnitRenderActionFla
         return NO;
     }
     
-#ifndef __MAC_OS_X_VERSION_MAX_ALLOWED
+#ifdef __MAC_OS_X_VERSION_MAX_ALLOWED
+    UInt32 numberOfFrames;
+    UInt32 size = sizeof(UInt32);
+    if(checkResult(AudioUnitGetProperty(_ioAudioUnit,
+                                        kAudioDevicePropertyBufferFrameSize,
+                                        kAudioUnitScope_Global,
+                                        0,
+                                        &numberOfFrames,
+                                        &size), "AudioUnitGetProperty[kAudioDevicePropertyBufferFrameSize]")) {
+        NSTimeInterval bufferDuration = AEConvertFramesToSeconds(self, numberOfFrames);
+        if ( _currentBufferDuration != bufferDuration ) self.currentBufferDuration = bufferDuration;
+    } else {
+        NSLog(@"TAAE:%s Couldn't determine output buffer duration (Mac OS X).", __PRETTY_FUNCTION__);
+    }
+#else
     AVAudioSession *audioSession = [AVAudioSession sharedInstance];
     
     if ( ![audioSession setActive:YES error:error] ) {
@@ -1875,7 +1889,7 @@ NSTimeInterval AEConvertFramesToSeconds(__unsafe_unretained AEAudioController *T
     if ( _preferredBufferDuration == preferredBufferDuration ) return;
     
 #ifdef __MAC_OS_X_VERSION_MAX_ALLOWED
-    NSLog(@"TAAE: %s Not implemented for Mac OS X yet (%@:%i)", __PRETTY_FUNCTION__, [[NSString stringWithFormat:@"%s",__FILE__] lastPathComponent], __LINE__);
+    NSLog(@"TAAE: %s is not implemented for Mac OS X yet (%@:%i)", __PRETTY_FUNCTION__, [[NSString stringWithFormat:@"%s",__FILE__] lastPathComponent], __LINE__); // see [self start:] function for some related code
 #else
     _preferredBufferDuration = preferredBufferDuration;
     
