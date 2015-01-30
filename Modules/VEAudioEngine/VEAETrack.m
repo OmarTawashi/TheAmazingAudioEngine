@@ -3,7 +3,8 @@
 //  VEAudioEngine Module for TheAmazingAudioEngine
 //
 //  Created by Leo Thiessen on 2015-01-21.
-//  Copyright (c) 2015 Visions Encoded. All rights reserved.
+//
+//  Copyright (C) 2015 Visions Encoded.
 //
 //  This software is provided 'as-is', without any express or implied
 //  warranty.  In no event will the authors be held liable for any damages
@@ -23,6 +24,7 @@
 //
 //  3. This notice may not be removed or altered from any source distribution.
 //
+
 
 #import "VEAETrack.h"
 
@@ -363,7 +365,7 @@ static OSStatus _renderCallback(__unsafe_unretained VEAETrack         *THIS,
             }
         }
     }
-
+    
     return noErr;
 }
 

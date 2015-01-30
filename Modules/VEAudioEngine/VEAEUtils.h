@@ -3,7 +3,8 @@
 //  VEAudioEngine Module for TheAmazingAudioEngine
 //
 //  Created by Leo Thiessen on 2015-01-21.
-//  Copyright (c) 2015 Visions Encoded. All rights reserved.
+//
+//  Copyright (C) 2015 Visions Encoded.
 //
 //  This software is provided 'as-is', without any express or implied
 //  warranty.  In no event will the authors be held liable for any damages
@@ -104,6 +105,7 @@ static inline BOOL _audCheckOSStatus(OSStatus result, const char *operation, con
 
 
 /// A simple gain filter for an audio buffer - gain must be >= 0 and should probably be <= 1.0 (max is not enforced)
+/// Uses a "linear" algorithm.
 static inline void audDSP_gain(AudioBufferList *bufferList,
                                const vDSP_Length frameCount,
                                const float gain) {
@@ -118,24 +120,29 @@ static inline void audDSP_gain(AudioBufferList *bufferList,
 
 
 /// A simple pan filter for an audio buffer - pan must be >= 0.0 (fully left) and <= 2.0 (fully right)
+/// Uses a "Sinusoidal" panning algorithm - see http://folk.ntnu.no/oyvinbra/gdsp/Lesson1Panning.html
 static inline void audDSP_pan(AudioBufferList *bufferList,
                               const vDSP_Length frameCount,
                               const float pan) {
-    if(bufferList->mNumberBuffers < 2 || pan < 0 || pan > 2 || ((int)(pan * 1000)) == 1000 ) {
+    if(bufferList->mNumberBuffers < 2) {
         return; // nothing to do
     }
-    float gain = pan; // is correct diminished gain value for right channel if pan < 1.0f
-    UInt32 bufferIndex = 1; // starting index for right channels (odd # indexes)
-    if(pan > 1.0f) {
-        gain = 2.0f - pan; // left channel diminished gain value
-        bufferIndex = 0;   // left channel indexes (even # indexes)
-    }
-    for(; bufferIndex < bufferList->mNumberBuffers; bufferIndex += 2) { // process every 2nd channel
-        vDSP_vsmul((float*)bufferList->mBuffers[bufferIndex].mData, 1, &gain,
+    // Sinusoidal algorithm
+    const float f = (pan < 0 ? 0 : (pan > 2 ? 2.0f : pan)) * M_PI_4; // same result as normalized pan value * (PI / 2)
+    const float gainLeft = cos(f);
+    const float gainRight = sin(f);
+    for(UInt32 bufferIndex = 0; (bufferIndex + 1) < bufferList->mNumberBuffers; ++bufferIndex) { // stereo pairs
+        vDSP_vsmul((float*)bufferList->mBuffers[bufferIndex].mData, 1, &gainLeft,
+                   (float*)bufferList->mBuffers[bufferIndex].mData, 1, frameCount);
+        bufferIndex++;
+        vDSP_vsmul((float*)bufferList->mBuffers[bufferIndex].mData, 1, &gainRight,
                    (float*)bufferList->mBuffers[bufferIndex].mData, 1, frameCount);
     }
+
 }
 
+
+/// Utility to create NSError objects.
 static inline NSError* audNSError(const OSStatus result,
                                   const NSString *localizedDescription) {
     return [NSError errorWithDomain:NSOSStatusErrorDomain

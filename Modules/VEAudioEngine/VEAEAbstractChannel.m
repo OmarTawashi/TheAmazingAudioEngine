@@ -3,7 +3,8 @@
 //  VEAudioEngine Module for TheAmazingAudioEngine
 //
 //  Created by Leo Thiessen on 2015-01-21.
-//  Copyright (c) 2015 Visions Encoded. All rights reserved.
+//
+//  Copyright (C) 2015 Visions Encoded.
 //
 //  This software is provided 'as-is', without any express or implied
 //  warranty.  In no event will the authors be held liable for any damages
@@ -25,6 +26,7 @@
 //
 
 #import "VEAEAbstractChannel.h"
+#import <mach/mach_time.h> // needed for mach_timebase_info_data_t & related
 
 
 
@@ -119,7 +121,6 @@ double _hTime2nsFactor = 1.0; // we'll get the actual value of this when this cl
 
 
 - (void)dspGainTo:(float)gain duration:(float)seconds completion:(ve_completion_block_t)completion {
-    
     // Stop any active modulation by setting it's value
     [self stopModulatingDspGain]; // this ensures any existing completion block is called as required
     
@@ -127,10 +128,11 @@ double _hTime2nsFactor = 1.0; // we'll get the actual value of this when this cl
     if(completion) {
         _modGainCompletionBlock = [completion copy];
     }
+    _modGain.active = NO;
     _modGain.startValue = _dspGain; // current
     _modGain.endValue = gain < 0 ? 0 : gain;
     _modGain.valueDiff = _modGain.endValue - _modGain.startValue;
-    if(seconds > 0.05f && _modGain.valueDiff > FLT_EPSILON) {
+    if(seconds > 0.05f && ABS(_modGain.valueDiff) > FLT_EPSILON) {
         if(completion) {
             _modGainCompletionBlock = [completion copy];
         }
@@ -160,7 +162,7 @@ double _hTime2nsFactor = 1.0; // we'll get the actual value of this when this cl
     _modPan.startValue = _dspPan; // current
     _modPan.endValue = pan < 0 ? 0 : (pan > 2 ? 2 : pan);
     _modPan.valueDiff = _modPan.endValue - _modPan.startValue;
-    if(seconds > 0.05f && _modPan.valueDiff > FLT_EPSILON) {
+    if(seconds > 0.05f && ABS(_modPan.valueDiff) > FLT_EPSILON) {
         if(completion) {
             _modPanCompletionBlock = [completion copy];
         }
@@ -196,7 +198,7 @@ double _hTime2nsFactor = 1.0; // we'll get the actual value of this when this cl
 - (void)removeSelf:(float)fadeOutDuration {
     fadeOutDuration = fadeOutDuration<0 ? 0 : fadeOutDuration;
     AEAudioController __weak *weakAudCtrlr = _audCtrlr;
-    [self dspGainTo:0 duration:fadeOutDuration completion:^(VEAEAbstractChannel *THIS){
+    [self dspGainTo:0 duration:fadeOutDuration completion:^(VEAEAbstractChannel *THIS) {
         [weakAudCtrlr removeChannels:@[THIS]];
     }];
 }
