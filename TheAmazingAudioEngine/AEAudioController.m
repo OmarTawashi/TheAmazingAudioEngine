@@ -1983,7 +1983,6 @@ NSTimeInterval AEAudioControllerOutputLatency(__unsafe_unretained AEAudioControl
             NSLog(@"TAAE:%s Couldn't determine output latency (Mac OS X).", __PRETTY_FUNCTION__);
         }
     }
-    NSLog(@"\n\n**** TAAE:%s cachedOutputLatency: %.3f  (Mac OS X)", __PRETTY_FUNCTION__, __cachedOutputLatency);
     return __cachedOutputLatency;
 #else
     if ( THIS->_renderThread == pthread_self() ) {
